@@ -20,7 +20,7 @@ export const menuItems = [
     name: 'Eggs on toast',
     description: 'Fried eggs on toast, campus breakfast.',
     priceCents: randsToCents(38),
-    image: 'assets/food/eggs.jpg',
+    image: '/assets/food/eggs.jpg',
     popular: true,
   },
   {
@@ -29,7 +29,7 @@ export const menuItems = [
     name: 'Breakfast roll',
     description: 'Filled roll to grab between lectures.',
     priceCents: randsToCents(45),
-    image: 'assets/food/breakfast-roll.jpg',
+    image: '/assets/food/breakfast-roll.jpg',
   },
   {
     id: 'full-brunch',
@@ -37,7 +37,7 @@ export const menuItems = [
     name: 'Full brunch',
     description: 'Eggs, wors and chips. Saturday kitchen.',
     priceCents: randsToCents(89),
-    image: 'assets/food/brunch.jpg',
+    image: '/assets/food/brunch.jpg',
     availableDays: [6],
     specialOn: [6],
     badge: 'Sat only',
@@ -48,7 +48,7 @@ export const menuItems = [
     name: 'Beef stew & pap',
     description: 'Slow pot, served with pap.',
     priceCents: randsToCents(72),
-    image: 'assets/food/beef-stew.jpg',
+    image: '/assets/food/beef-stew.jpg',
     specialOn: [1, 4],
     popular: true,
   },
@@ -58,7 +58,7 @@ export const menuItems = [
     name: 'Chicken stew',
     description: 'Daily pot — pap or rice on the side.',
     priceCents: randsToCents(70),
-    image: 'assets/food/chicken-stew.jpg',
+    image: '/assets/food/chicken-stew.jpg',
   },
   {
     id: 'mogodu',
@@ -66,7 +66,7 @@ export const menuItems = [
     name: 'Mogodu & pap',
     description: 'Tripe, dumpling or pap, chilli oil.',
     priceCents: randsToCents(80),
-    image: 'assets/food/spicy.jpg',
+    image: '/assets/food/spicy.jpg',
     specialOn: [2],
   },
   {
@@ -75,7 +75,7 @@ export const menuItems = [
     name: 'Veg curry & rice',
     description: 'Vegetarian pot of the day with rice.',
     priceCents: randsToCents(60),
-    image: 'assets/food/veg-curry.jpg',
+    image: '/assets/food/veg-curry.jpg',
   },
   {
     id: 'chicken-2pc',
@@ -83,7 +83,7 @@ export const menuItems = [
     name: 'Fried chicken 2pc',
     description: 'Crisp pieces. Add chips or pap.',
     priceCents: randsToCents(55),
-    image: 'assets/food/chicken-2pc.jpg',
+    image: '/assets/food/chicken-2pc.jpg',
   },
   {
     id: 'chicken-3pc',
@@ -91,7 +91,7 @@ export const menuItems = [
     name: 'Fried chicken 3pc',
     description: 'Wednesday favourite — pap or chips.',
     priceCents: randsToCents(68),
-    image: 'assets/food/chicken.jpg',
+    image: '/assets/food/chicken.jpg',
     specialOn: [3],
     popular: true,
   },
@@ -101,7 +101,7 @@ export const menuItems = [
     name: 'Campus burger & chips',
     description: 'Sesame bun, cheese, chips in the box.',
     priceCents: randsToCents(69),
-    image: 'assets/food/burger.jpg',
+    image: '/assets/food/burger.jpg',
     popular: true,
   },
   {
@@ -110,7 +110,7 @@ export const menuItems = [
     name: 'Pap & wors',
     description: 'Grill plate. Friday shisa nyama energy.',
     priceCents: randsToCents(65),
-    image: 'assets/food/grill.jpg',
+    image: '/assets/food/grill.jpg',
     specialOn: [5],
   },
   {
@@ -119,7 +119,7 @@ export const menuItems = [
     name: 'Pap & gravy',
     description: 'Soft pap with gravy from the pot.',
     priceCents: randsToCents(35),
-    image: 'assets/food/spicy.jpg',
+    image: '/assets/food/spicy.jpg',
   },
   {
     id: 'chakalaka',
@@ -127,7 +127,7 @@ export const menuItems = [
     name: 'Chakalaka beans',
     description: 'Slow pot. Dumpling or pap on request.',
     priceCents: randsToCents(28),
-    image: 'assets/food/veg-curry.jpg',
+    image: '/assets/food/veg-curry.jpg',
   },
   {
     id: 'chips',
@@ -135,7 +135,7 @@ export const menuItems = [
     name: 'Chips',
     description: 'Hot portion, salted.',
     priceCents: randsToCents(30),
-    image: 'assets/food/chips.jpg',
+    image: '/assets/food/chips.jpg',
   },
   {
     id: 'salad-box',
@@ -143,7 +143,7 @@ export const menuItems = [
     name: 'Salad box',
     description: 'Fresh box when you want something light.',
     priceCents: randsToCents(42),
-    image: 'assets/food/salad.jpg',
+    image: '/assets/food/salad.jpg',
   },
   {
     id: 'coffee-tea',
@@ -151,7 +151,7 @@ export const menuItems = [
     name: 'Coffee / tea',
     description: 'Hot cup from the counter.',
     priceCents: randsToCents(22),
-    image: 'assets/food/coffee.jpg',
+    image: '/assets/food/coffee.jpg',
   },
   {
     id: 'juice',
@@ -159,7 +159,7 @@ export const menuItems = [
     name: 'Juice',
     description: 'Cold juice, fridge stock.',
     priceCents: randsToCents(20),
-    image: 'assets/food/juice.jpg',
+    image: '/assets/food/juice.jpg',
   },
   {
     id: 'milkshake',
@@ -167,7 +167,7 @@ export const menuItems = [
     name: 'Milkshake',
     description: 'Thick shake when the blender is on.',
     priceCents: randsToCents(32),
-    image: 'assets/food/milkshake.jpg',
+    image: '/assets/food/milkshake.jpg',
   },
 ];
 

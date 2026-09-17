@@ -88,7 +88,7 @@ h3,
 }
 
 #app {
-  padding-bottom: 28px;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
 }
 
 .sr-only {

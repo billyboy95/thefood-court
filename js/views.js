@@ -1,9 +1,9 @@
-import { categories } from '../data/menu.js';
-import { venue } from '../data/venue.js';
-import { escapeHtml } from '../lib/dom.js';
-import { formatZAR } from '../lib/money.js';
-import { formatSaPhone } from '../lib/phone.js';
-import { isItemAvailable, kitchenStatus, partsInTZ } from '../lib/hours.js';
+import { categories } from './data/menu.js';
+import { venue } from './data/venue.js';
+import { escapeHtml } from './lib/dom.js';
+import { formatZAR } from './lib/money.js';
+import { formatSaPhone } from './lib/phone.js';
+import { isItemAvailable, kitchenStatus, partsInTZ } from './lib/hours.js';
 
 function qtyControl(itemId, qty) {
   if (qty < 1) {
