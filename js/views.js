@@ -3,9 +3,17 @@ import { venue } from './data/venue.js';
 import { escapeHtml } from './lib/dom.js';
 import { formatZAR } from './lib/money.js';
 import { formatSaPhone } from './lib/phone.js';
-import { isItemAvailable, kitchenStatus, partsInTZ } from './lib/hours.js';
+import {
+  availableDaysLabel,
+  dayLabel,
+  isItemAvailable,
+  kitchenStatus,
+  partsInTZ,
+  pickupDow,
+  unavailableLines,
+} from './lib/hours.js';
 
-function qtyControl(itemId, qty) {
+function qtyControl(itemId, qty, { disableInc = false } = {}) {
   if (qty < 1) {
     return `<button class="add-btn" type="button" data-add="${escapeHtml(itemId)}">Add</button>`;
   }
@@ -13,7 +21,7 @@ function qtyControl(itemId, qty) {
     <div class="qty" role="group" aria-label="Quantity">
       <button type="button" data-dec="${escapeHtml(itemId)}" aria-label="Remove one">−</button>
       <span>${qty}</span>
-      <button type="button" data-inc="${escapeHtml(itemId)}" aria-label="Add one">+</button>
+      <button type="button" data-inc="${escapeHtml(itemId)}" aria-label="Add one" ${disableInc ? 'disabled' : ''}>+</button>
     </div>`;
 }
 
@@ -114,24 +122,35 @@ export function renderMenu({ items, cart, category, query, slots, now }) {
     ${renderFooterNote()}`;
 }
 
-export function renderCartPage({ cart }) {
+export function renderCartPage({ cart, slots, now }) {
+  const dow = pickupDow(slots, now);
+  const pickupDay = dayLabel(dow);
+  const blocked = unavailableLines(cart.lines, dow);
+  const blockedIds = new Set(blocked.map((line) => line.itemId));
+
   const rows = cart.lines.length
     ? cart.lines
-        .map(
-          (line) => `
-          <article class="cart-row">
+        .map((line) => {
+          const available = !blockedIds.has(line.itemId);
+          return `
+          <article class="cart-row ${available ? '' : 'is-unavailable'}">
             <img class="thumb sm" src="${escapeHtml(line.item.image)}" alt="" width="64" height="64">
             <div>
               <h3>${escapeHtml(line.item.name)}</h3>
               <p class="muted">${formatZAR(line.item.priceCents)} each</p>
+              ${
+                available
+                  ? ''
+                  : `<p class="warn">Not on for ${escapeHtml(pickupDay)} pickup · ${escapeHtml(availableDaysLabel(line.item))} only</p>`
+              }
               <button type="button" class="text-btn" data-remove="${escapeHtml(line.itemId)}">Remove</button>
             </div>
             <div class="cart-row-end">
-              ${qtyControl(line.itemId, line.qty)}
+              ${qtyControl(line.itemId, line.qty, { disableInc: !available })}
               <strong>${formatZAR(line.lineTotal)}</strong>
             </div>
-          </article>`,
-        )
+          </article>`;
+        })
         .join('')
     : `<div class="empty-card">
          <h2>Your cart is empty</h2>
@@ -139,9 +158,22 @@ export function renderCartPage({ cart }) {
          <a class="btn btn-gold" data-link href="/">Browse menu</a>
        </div>`;
 
+  const unavailableBanner = blocked.length
+    ? `<p class="alert" role="alert">
+         ${escapeHtml(
+           blocked.length === 1
+             ? `${blocked[0].item.name} is not available for ${pickupDay} pickup.`
+             : `${blocked.map((line) => line.item.name).join(', ')} are not available for ${pickupDay} pickup.`,
+         )}
+         Remove ${blocked.length === 1 ? 'it' : 'them'} to continue, or we’ll drop ${blocked.length === 1 ? 'it' : 'them'} at checkout.
+       </p>
+       <button type="button" class="btn btn-ghost btn-block" data-strip-unavailable>Remove unavailable items</button>`
+    : '';
+
   return `
     ${renderHeader({ cart, back: true, title: 'Cart' })}
     <section class="panel">
+      ${unavailableBanner}
       ${rows}
     </section>
     ${
@@ -150,18 +182,19 @@ export function renderCartPage({ cart }) {
              <div class="sum-row"><span>Items</span><span>${cart.itemCount}</span></div>
              <div class="sum-row total"><span>Total</span><span>${formatZAR(cart.totalCents)}</span></div>
              <p class="pay-hint">Pay when you collect — cash or card at the counter.</p>
-             <a class="btn btn-gold btn-block" data-link href="/checkout">Go to checkout</a>
+             <a class="btn btn-gold btn-block" data-link href="/checkout">${blocked.length ? 'Continue without unavailable items' : 'Go to checkout'}</a>
            </section>`
         : ''
     }`;
 }
 
-export function renderCheckout({ cart, slots, error = '', pending = false, form = {} }) {
+export function renderCheckout({ cart, slots, error = '', notice = '', pending = false, form = {} }) {
   if (!cart.itemCount) {
     return `
       ${renderHeader({ cart, back: true, title: 'Checkout' })}
       <div class="empty-card">
         <h2>Nothing to check out</h2>
+        ${notice ? `<p class="notice" role="status">${escapeHtml(notice)}</p>` : ''}
         <a class="btn btn-gold" data-link href="/">Back to menu</a>
       </div>`;
   }
@@ -189,6 +222,7 @@ export function renderCheckout({ cart, slots, error = '', pending = false, form 
       <p class="eyebrow">Pickup at the Food Court</p>
       <h2 class="section-title">Who’s collecting?</h2>
       <p class="muted address">${escapeHtml(venue.address)}</p>
+      ${notice ? `<p class="notice" role="status">${escapeHtml(notice)}</p>` : ''}
       ${error ? `<p class="alert" role="alert">${escapeHtml(error)}</p>` : ''}
       <form id="checkout-form" class="checkout-form" novalidate>
         <label>

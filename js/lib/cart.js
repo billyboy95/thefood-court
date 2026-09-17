@@ -76,5 +76,13 @@ export function createCart({ storage, getItem, key = DEFAULT_KEY }) {
       state = { lines: [] };
       return emit();
     },
+    removeMany(itemIds) {
+      const drop = new Set(itemIds);
+      if (!drop.size) return snapshot();
+      const next = state.lines.filter((l) => !drop.has(l.itemId));
+      if (next.length === state.lines.length) return snapshot();
+      state.lines = next;
+      return emit();
+    },
   };
 }

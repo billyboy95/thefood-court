@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getPickupSlots, kitchenStatus, partsInTZ } from '../js/lib/hours.js';
+import { getPickupSlots, isItemAvailable, kitchenStatus, partsInTZ } from '../js/lib/hours.js';
+import { getMenuItem } from '../js/data/menu.js';
 import { isValidSaPhone, normalizeSaPhone } from '../js/lib/phone.js';
 import { makeOrderNumber } from '../js/lib/ids.js';
 
@@ -35,6 +36,15 @@ describe('kitchen hours (Africa/Johannesburg)', () => {
     const slots = getPickupSlots(now);
     assert.equal(slots[0].dow, 6);
     assert.equal(slots[0].displayTime, '08:00');
+  });
+
+  it('hides Saturday-only brunch on a weekday pickup day', () => {
+    const brunch = getMenuItem('full-brunch');
+    const thu = getPickupSlots(new Date('2026-09-17T10:00:00+02:00'));
+    const sat = getPickupSlots(new Date('2026-09-19T10:00:00+02:00'));
+    assert.equal(isItemAvailable(brunch, thu), false);
+    assert.equal(isItemAvailable(brunch, sat), true);
+    assert.equal(isItemAvailable(getMenuItem('campus-burger'), thu), true);
   });
 });
 

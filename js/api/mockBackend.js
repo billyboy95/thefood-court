@@ -2,7 +2,7 @@ import { getMenu, getMenuItem } from '../data/menu.js';
 import { cartTotals } from '../lib/money.js';
 import { makeOrderId, makeOrderNumber } from '../lib/ids.js';
 import { normalizeSaPhone } from '../lib/phone.js';
-import { getPickupSlots } from '../lib/hours.js';
+import { getPickupSlots, isItemAvailableOnDay, unavailableOrderError } from '../lib/hours.js';
 
 const ORDERS_KEY = 'foodcourt.orders.v1';
 
@@ -22,7 +22,13 @@ function writeOrders(storage, orders) {
 /**
  * In-browser kitchen queue. Swap this for createHttpOrderApi() in client.js.
  */
-export function createMockOrderApi(storage) {
+export function createMockOrderApi(storage, options = {}) {
+  function clock() {
+    if (typeof options.now === 'function') return options.now();
+    if (options.now instanceof Date) return options.now;
+    return new Date();
+  }
+
   return {
     async getMenu() {
       return getMenu();
@@ -40,7 +46,7 @@ export function createMockOrderApi(storage) {
       }
 
       const pickupTime = String(input?.pickupTime ?? '');
-      const slots = getPickupSlots();
+      const slots = getPickupSlots(clock());
       const slot = slots.find((s) => s.iso === pickupTime);
       if (!slot) {
         throw new Error('Choose a pickup time from the list.');
@@ -52,10 +58,15 @@ export function createMockOrderApi(storage) {
         throw new Error('Your cart is empty.');
       }
 
-      const now = new Date();
+      const blocked = totals.lines.filter((line) => !isItemAvailableOnDay(line.item, slot.dow));
+      if (blocked.length) {
+        throw new Error(unavailableOrderError(blocked.map((line) => line.item), slot.dow));
+      }
+
+      const placedAt = clock();
       const order = {
-        id: makeOrderId(now),
-        orderNumber: makeOrderNumber(now),
+        id: makeOrderId(placedAt),
+        orderNumber: makeOrderNumber(placedAt),
         status: 'received',
         customerName: name,
         phone,
@@ -72,7 +83,7 @@ export function createMockOrderApi(storage) {
         itemCount: totals.itemCount,
         totalCents: totals.totalCents,
         payOnCollection: true,
-        createdAt: now.toISOString(),
+        createdAt: placedAt.toISOString(),
         source: 'mock',
       };
 

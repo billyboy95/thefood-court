@@ -120,10 +120,48 @@ export function getPickupSlots(now = new Date()) {
   return [];
 }
 
-export function isItemAvailable(item, slots, now = new Date()) {
+const WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export function dayLabel(dow) {
+  return WEEKDAY_LONG[dow] ?? 'that day';
+}
+
+/** Pickup weekday for the next offered slot (or “now” if none). */
+export function pickupDow(slots, now = new Date()) {
+  if (slots?.length) return slots[0].dow;
+  return partsInTZ(now).dow;
+}
+
+export function isItemAvailableOnDay(item, dow) {
   if (!item?.availableDays?.length) return true;
-  if (slots.length) return item.availableDays.includes(slots[0].dow);
-  return item.availableDays.includes(partsInTZ(now).dow);
+  return item.availableDays.includes(dow);
+}
+
+export function isItemAvailable(item, slots, now = new Date()) {
+  return isItemAvailableOnDay(item, pickupDow(slots, now));
+}
+
+export function availableDaysLabel(item) {
+  if (!item?.availableDays?.length) return 'every open day';
+  return item.availableDays.map(dayLabel).join(', ');
+}
+
+export function unavailableLines(lines, dow) {
+  return (lines ?? []).filter((line) => {
+    const item = line.item;
+    return item && !isItemAvailableOnDay(item, dow);
+  });
+}
+
+export function unavailableOrderError(items, dow) {
+  const pickupDay = dayLabel(dow);
+  if (!items.length) return '';
+  if (items.length === 1) {
+    const item = items[0];
+    return `${item.name} is only available on ${availableDaysLabel(item)}, not for ${pickupDay} pickup. Remove it from your cart or choose a matching pickup day.`;
+  }
+  const names = items.map((item) => item.name).join(', ');
+  return `${names} are not available for ${pickupDay} pickup. Remove them from your cart or choose a matching pickup day.`;
 }
 
 export function todaysSpecials(now = new Date()) {

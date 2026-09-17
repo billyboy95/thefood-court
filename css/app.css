@@ -280,6 +280,13 @@ h1 {
   padding: 4px 16px 16px;
 }
 
+.panel > .alert {
+  margin-bottom: 10px;
+}
+.panel > .btn {
+  margin-bottom: 14px;
+}
+
 .item-card,
 .cart-row,
 .ticket,
@@ -299,6 +306,9 @@ h1 {
 }
 .item-card.is-disabled {
   opacity: 0.55;
+}
+.cart-row.is-unavailable {
+  opacity: 0.72;
 }
 
 .thumb {
@@ -377,7 +387,9 @@ h1 {
   color: #fff;
   font-weight: 800;
   font-size: 13px;
-  padding: 8px 14px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
   border-radius: 999px;
 }
 
@@ -389,17 +401,27 @@ h1 {
   overflow: hidden;
 }
 .qty span {
-  min-width: 22px;
+  min-width: 28px;
   text-align: center;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 14px;
 }
 .qty button {
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
   background: var(--navy);
   color: #fff;
-  font-size: 16px;
+  font-size: 20px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.qty button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .cart-bar {
@@ -554,6 +576,13 @@ h1 {
   margin-top: 4px;
 }
 
+.warn {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
 .alert {
   background: #fde8e8;
   color: var(--danger);
@@ -561,6 +590,16 @@ h1 {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.notice {
+  background: #fff4d6;
+  color: var(--navy);
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
 .confirm {

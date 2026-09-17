@@ -49,4 +49,14 @@ describe('cart store', () => {
     cart.clear();
     assert.equal(cart.snapshot().itemCount, 0);
   });
+
+  it('removeMany drops selected lines in one write', () => {
+    const storage = memoryStorage();
+    const cart = createCart({ storage, getItem });
+    cart.add('burger');
+    cart.add('chips');
+    cart.removeMany(['chips', 'ghost']);
+    assert.equal(cart.snapshot().itemCount, 1);
+    assert.equal(cart.snapshot().lines[0].itemId, 'burger');
+  });
 });

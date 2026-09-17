@@ -28,7 +28,7 @@ You can also open `index.html` through any static file server. A module-capable 
 - Confirmation ticket with order number (`FC-…`)
 - Kitchen hours in `Africa/Johannesburg` (Mon–Fri 07:00–17:30, Sat 08:00–15:00, Sun closed)
 - Pickup slots start 20 minutes from now, every 15 minutes, last slot 15 minutes before close
-- Saturday-only brunch is disabled on other days
+- Saturday-only brunch is disabled on other days, flagged in the cart, stripped at checkout, and rejected by `createOrder` if the pickup slot is not Saturday
 
 ## Deploy to thefood-court.co.za
 

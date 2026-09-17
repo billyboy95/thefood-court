@@ -65,4 +65,37 @@ describe('mock order API', () => {
       /empty/i,
     );
   });
+
+  it('rejects Saturday-only items on a weekday pickup slot', async () => {
+    const now = new Date('2026-09-17T10:00:00+02:00');
+    const api = createMockOrderApi(memoryStorage(), { now });
+    const pickup = getPickupSlots(now)[0];
+    await assert.rejects(
+      () =>
+        api.createOrder({
+          customerName: 'Thabo',
+          phone: '0821234567',
+          pickupTime: pickup.iso,
+          items: [
+            { itemId: 'campus-burger', qty: 1 },
+            { itemId: 'full-brunch', qty: 1 },
+          ],
+        }),
+      /Full brunch is only available on Saturday, not for Thursday pickup/i,
+    );
+  });
+
+  it('accepts Saturday-only brunch on a Saturday slot', async () => {
+    const now = new Date('2026-09-19T10:00:00+02:00');
+    const api = createMockOrderApi(memoryStorage(), { now });
+    const pickup = getPickupSlots(now)[0];
+    const order = await api.createOrder({
+      customerName: 'Thabo',
+      phone: '0821234567',
+      pickupTime: pickup.iso,
+      items: [{ itemId: 'full-brunch', qty: 1 }],
+    });
+    assert.equal(order.items[0].itemId, 'full-brunch');
+    assert.equal(order.totalCents, 8900);
+  });
 });
