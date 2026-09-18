@@ -6,7 +6,6 @@ const PIN_KEY = 'foodcourt.staffPin';
 const MUTE_KEY = 'foodcourt.kitchenMute';
 const REFRESH_MS = 8000;
 
-const root = document.getElementById('kitchen-app');
 const orderApi = createOrderApi({ storage: getLocalStorage() });
 
 const ui = {
@@ -23,6 +22,9 @@ const ui = {
   flash: '',
   knownIds: new Set(),
 };
+
+let root = null;
+let started = false;
 
 try {
   ui.muted = sessionStorage.getItem(MUTE_KEY) === '1';
@@ -87,8 +89,12 @@ function forgetPin() {
   }
 }
 
+function onKitchenPage() {
+  return Boolean(root) && (root.id === 'kitchen-app' || root.dataset.page === 'kitchen');
+}
+
 async function refresh({ announce = false } = {}) {
-  if (!ui.unlocked) return;
+  if (!ui.unlocked || !onKitchenPage()) return;
   try {
     const result = await orderApi.listOpenOrders(ui.pin);
     const orders = Array.isArray(result) ? result : result.orders || [];
@@ -141,76 +147,92 @@ async function unlock(pin) {
   }
 }
 
-root?.addEventListener('submit', (event) => {
-  if (event.target.id !== 'kitchen-pin-form') return;
-  event.preventDefault();
-  const pin = String(new FormData(event.target).get('pin') || '').trim();
-  unlock(pin);
-});
+function eventEl(event) {
+  const t = event.target;
+  return t instanceof Element ? t : t?.parentElement;
+}
 
-root?.addEventListener('click', async (event) => {
-  const lock = event.target.closest('[data-lock]');
-  const mute = event.target.closest('[data-mute]');
-  const filter = event.target.closest('[data-filter]');
-  const advance = event.target.closest('[data-advance]');
+function bind() {
+  document.addEventListener('submit', (event) => {
+    if (!onKitchenPage() || event.target.id !== 'kitchen-pin-form') return;
+    event.preventDefault();
+    const pin = String(new FormData(event.target).get('pin') || '').trim();
+    unlock(pin);
+  });
 
-  if (lock) {
-    forgetPin();
-    ui.orders = [];
-    paint();
-    return;
-  }
-  if (mute) {
-    ui.muted = !ui.muted;
-    try {
-      sessionStorage.setItem(MUTE_KEY, ui.muted ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-    paint();
-    return;
-  }
-  if (filter) {
-    ui.filter = filter.dataset.filter;
-    paint();
-    return;
-  }
-  if (advance) {
-    const id = advance.dataset.advance;
-    const status = advance.dataset.status;
-    advance.disabled = true;
-    try {
-      await orderApi.updateOrderStatus(id, status, ui.pin);
-      await refresh();
-    } catch (err) {
-      ui.error = err.message || 'Could not update that order.';
+  document.addEventListener('click', async (event) => {
+    if (!onKitchenPage()) return;
+    const t = eventEl(event);
+    if (!t) return;
+    const lock = t.closest('[data-lock]');
+    const mute = t.closest('[data-mute]');
+    const filter = t.closest('button[data-filter]');
+    const advance = t.closest('[data-advance]');
+
+    if (lock) {
+      forgetPin();
+      ui.orders = [];
       paint();
+      return;
     }
+    if (mute) {
+      ui.muted = !ui.muted;
+      try {
+        sessionStorage.setItem(MUTE_KEY, ui.muted ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      paint();
+      return;
+    }
+    if (filter) {
+      ui.filter = filter.dataset.filter;
+      paint();
+      return;
+    }
+    if (advance) {
+      const id = advance.dataset.advance;
+      const status = advance.dataset.status;
+      advance.disabled = true;
+      try {
+        await orderApi.updateOrderStatus(id, status, ui.pin);
+        await refresh();
+      } catch (err) {
+        ui.error = err.message || 'Could not update that order.';
+        paint();
+      }
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh({ announce: true });
+  });
+
+  setInterval(() => {
+    if (document.visibilityState !== 'hidden') refresh({ announce: true });
+  }, REFRESH_MS);
+
+  setInterval(() => {
+    if (ui.unlocked && onKitchenPage()) paint();
+  }, 30000);
+}
+
+export async function startKitchen(mount) {
+  root = mount;
+  if (!root) return;
+  if (!started) {
+    started = true;
+    bind();
   }
-});
-
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') refresh({ announce: true });
-});
-
-setInterval(() => {
-  if (document.visibilityState !== 'hidden') refresh({ announce: true });
-}, REFRESH_MS);
-
-setInterval(() => {
-  if (ui.unlocked) paint();
-}, 30000);
-
-(async function start() {
   let stored = '';
   try {
     stored = sessionStorage.getItem(PIN_KEY) || '';
   } catch {
     /* ignore */
   }
-  if (stored) {
-    await unlock(stored);
-  } else {
-    paint();
-  }
-})();
+  if (stored) await unlock(stored);
+  else paint();
+}
+
+const standalone = document.getElementById('kitchen-app');
+if (standalone) startKitchen(standalone);

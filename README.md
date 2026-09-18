@@ -30,7 +30,7 @@ npm test
 npm start
 ```
 
-Then open [http://localhost:5173](http://localhost:5173). `npm start` serves the static app with SPA fallback so `/cart`, `/checkout`, `/order/:id`, and `/kitchen` work.
+Then open [http://localhost:5173](http://localhost:5173). `npm start` serves the static app with SPA fallback (`serve.json` keeps `.html` URLs). `/cart`, `/checkout`, `/order/:id`, and `/kitchen` load the app; `/kitchen.html` is a real file — bookmark that on the till laptop or TV.
 
 Local demo PIN for `/kitchen.html` is **`1234`** (override with `window.FOODCOURT_STAFF_PIN`). WhatsApp is not sent from the browser.
 

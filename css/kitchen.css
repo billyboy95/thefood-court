@@ -6,10 +6,14 @@ body.kitchen-page {
   color: #f6efe4;
 }
 
-body.kitchen-page {
+html.is-kitchen .app-shell {
+  max-width: none;
   min-height: 100dvh;
+  background: #071525;
+  box-shadow: none;
 }
 
+html.is-kitchen #app,
 #kitchen-app {
   min-height: 100dvh;
   padding-bottom: 24px;
