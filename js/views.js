@@ -236,7 +236,7 @@ export function renderConfirmation({ order }) {
       ${renderHeader({ cart: { itemCount: 0 }, back: true, title: 'Order' })}
       <div class="empty-card">
         <h2>Order not found</h2>
-        <p>This confirmation lives on this phone until the kitchen system is connected.</p>
+        <p>We couldn’t find that ticket. If you just ordered, check the link or place it again.</p>
         <a class="btn btn-gold" data-link href="/">Order again</a>
       </div>`;
   }

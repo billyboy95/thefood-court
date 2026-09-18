@@ -4,6 +4,7 @@ import { createCart } from './lib/cart.js';
 import { getLocalStorage } from './lib/dom.js';
 import { getPickupSlots } from './lib/hours.js';
 import { createRouter } from './lib/router.js';
+import { startKitchen } from './kitchen.js';
 import {
   cartQtyLookup,
   renderCartPage,
@@ -42,6 +43,19 @@ async function paint(route) {
   const snapshot = cartView();
   const now = new Date();
   const slots = getPickupSlots(now);
+
+  if (route.name === 'kitchen') {
+    document.documentElement.classList.add('is-kitchen');
+    document.body.classList.add('kitchen-page');
+    document.title = 'Kitchen · The Food Court';
+    root.dataset.page = 'kitchen';
+    await startKitchen(root);
+    return;
+  }
+
+  document.documentElement.classList.remove('is-kitchen');
+  document.body.classList.remove('kitchen-page');
+  document.title = 'The Food Court · Pre-order pickup';
 
   if (route.name === 'menu') {
     root.innerHTML = renderMenu({
@@ -100,11 +114,13 @@ cart.subscribe(() => {
 });
 
 root.addEventListener('click', (event) => {
-  const add = event.target.closest('[data-add]');
-  const inc = event.target.closest('[data-inc]');
-  const dec = event.target.closest('[data-dec]');
-  const remove = event.target.closest('[data-remove]');
-  const cat = event.target.closest('[data-category]');
+  const t = event.target instanceof Element ? event.target : event.target.parentElement;
+  if (!t) return;
+  const add = t.closest('[data-add]');
+  const inc = t.closest('[data-inc]');
+  const dec = t.closest('[data-dec]');
+  const remove = t.closest('[data-remove]');
+  const cat = t.closest('[data-category]');
 
   if (add) cart.add(add.dataset.add);
   if (inc) {

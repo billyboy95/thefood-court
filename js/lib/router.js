@@ -5,6 +5,7 @@ export function createRouter({ render, windowObj = window }) {
     if (path === '/') return { name: 'menu' };
     if (path === '/cart') return { name: 'cart' };
     if (path === '/checkout') return { name: 'checkout' };
+    if (path === '/kitchen' || path === '/kitchen.html') return { name: 'kitchen' };
     if (order) return { name: 'order', id: decodeURIComponent(order[1]) };
     return { name: 'notfound' };
   }

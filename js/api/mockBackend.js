@@ -1,8 +1,11 @@
 import { getMenu, getMenuItem } from '../data/menu.js';
-import { cartTotals } from '../lib/money.js';
-import { makeOrderId, makeOrderNumber } from '../lib/ids.js';
-import { normalizeSaPhone } from '../lib/phone.js';
-import { getPickupSlots } from '../lib/hours.js';
+import {
+  applyStatus,
+  buildOrder,
+  DEFAULT_STAFF_PIN,
+  pinMatches,
+  sortOpenOrders,
+} from './orderService.js';
 
 const ORDERS_KEY = 'foodcourt.orders.v1';
 
@@ -19,71 +22,75 @@ function writeOrders(storage, orders) {
   storage.setItem(ORDERS_KEY, JSON.stringify(orders));
 }
 
+function expectedPin(staffPin) {
+  if (staffPin) return String(staffPin);
+  if (typeof globalThis !== 'undefined' && globalThis.FOODCOURT_STAFF_PIN) {
+    return String(globalThis.FOODCOURT_STAFF_PIN);
+  }
+  return DEFAULT_STAFF_PIN;
+}
+
+function assertPin(pin, staffPin) {
+  if (!pinMatches(pin, expectedPin(staffPin))) {
+    throw new Error('Wrong PIN.');
+  }
+}
+
+function findOrder(orders, id) {
+  return orders.find((order) => order.id === id || order.orderNumber === id) ?? null;
+}
+
 /**
  * In-browser kitchen queue. Swap this for createHttpOrderApi() in client.js.
+ * WhatsApp is not sent from the browser — that lives on the Worker.
  */
-export function createMockOrderApi(storage) {
+export function createMockOrderApi(storage, { nowFn = () => new Date(), staffPin } = {}) {
   return {
+    mode: 'mock',
+
     async getMenu() {
       return getMenu();
     },
 
     async createOrder(input) {
-      const name = String(input?.customerName ?? '').trim();
-      if (name.length < 2) {
-        throw new Error('Please enter your name.');
-      }
-
-      const phone = normalizeSaPhone(input?.phone);
-      if (!phone) {
-        throw new Error('Enter a valid South African phone number.');
-      }
-
-      const pickupTime = String(input?.pickupTime ?? '');
-      const slots = getPickupSlots();
-      const slot = slots.find((s) => s.iso === pickupTime);
-      if (!slot) {
-        throw new Error('Choose a pickup time from the list.');
-      }
-
-      const requested = Array.isArray(input?.items) ? input.items : [];
-      const totals = cartTotals(requested, getMenuItem);
-      if (!totals.itemCount) {
-        throw new Error('Your cart is empty.');
-      }
-
-      const now = new Date();
-      const order = {
-        id: makeOrderId(now),
-        orderNumber: makeOrderNumber(now),
-        status: 'received',
-        customerName: name,
-        phone,
-        pickupTime: slot.iso,
-        pickupLabel: slot.label,
-        notes: String(input?.notes ?? '').trim().slice(0, 240),
-        items: totals.lines.map((line) => ({
-          itemId: line.itemId,
-          name: line.item.name,
-          qty: line.qty,
-          unitPriceCents: line.item.priceCents,
-          lineTotalCents: line.lineTotal,
-        })),
-        itemCount: totals.itemCount,
-        totalCents: totals.totalCents,
-        payOnCollection: true,
-        createdAt: now.toISOString(),
+      const order = buildOrder(input, {
+        getMenuItem,
+        now: nowFn(),
         source: 'mock',
-      };
-
+      });
       const orders = readOrders(storage);
       orders.unshift(order);
-      writeOrders(storage, orders.slice(0, 50));
+      writeOrders(storage, orders.slice(0, 80));
       return order;
     },
 
     async getOrder(id) {
-      return readOrders(storage).find((order) => order.id === id || order.orderNumber === id) ?? null;
+      return findOrder(readOrders(storage), id);
+    },
+
+    async verifyStaffPin(pin) {
+      assertPin(pin, staffPin);
+      return { ok: true, whatsapp: false, demo: true };
+    },
+
+    async listOpenOrders(pin) {
+      assertPin(pin, staffPin);
+      return {
+        orders: sortOpenOrders(readOrders(storage)),
+        whatsapp: false,
+        demo: true,
+      };
+    },
+
+    async updateOrderStatus(id, status, pin) {
+      assertPin(pin, staffPin);
+      const orders = readOrders(storage);
+      const index = orders.findIndex((order) => order.id === id || order.orderNumber === id);
+      if (index < 0) return null;
+      const updated = applyStatus(orders[index], status, nowFn());
+      orders[index] = updated;
+      writeOrders(storage, orders);
+      return updated;
     },
   };
 }
