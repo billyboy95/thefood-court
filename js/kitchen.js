@@ -43,7 +43,6 @@ function paint() {
   root.innerHTML = renderKitchenBoard({
     orders: ui.orders,
     now,
-    whatsapp: ui.whatsapp,
     demo: ui.demo,
     filter: ui.filter,
     muted: ui.muted,

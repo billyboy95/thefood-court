@@ -84,7 +84,6 @@ function column(status, orders, now) {
 export function renderKitchenBoard({
   orders = [],
   now = new Date(),
-  whatsapp = false,
   demo = false,
   filter = 'all',
   muted = false,
@@ -116,11 +115,6 @@ export function renderKitchenBoard({
     ${
       demo
         ? `<p class="k-banner">Demo mode — orders on this device only. Deploy the Cloudflare Worker and set FOODCOURT_API_URL so the till sees student phones.</p>`
-        : ''
-    }
-    ${
-      !demo && !whatsapp
-        ? `<p class="k-banner k-banner-warn">WhatsApp alerts are off. Set KITCHEN_WHATSAPP and CALLMEBOT_APIKEY (or Twilio secrets) on the Worker.</p>`
         : ''
     }
     ${error ? `<p class="alert k-alert" role="alert">${escapeHtml(error)}</p>` : ''}

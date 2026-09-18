@@ -32,12 +32,12 @@ npm start
 
 Then open [http://localhost:5173](http://localhost:5173). `npm start` serves the static app with SPA fallback (`serve.json` keeps `.html` URLs). `/cart`, `/checkout`, `/order/:id`, and `/kitchen` load the app; `/kitchen.html` is a real file — bookmark that on the till laptop or TV.
 
-Local demo PIN for `/kitchen.html` is **`1234`** (override with `window.FOODCOURT_STAFF_PIN`). WhatsApp is not sent from the browser.
+Local demo PIN for `/kitchen.html` is **`1234`** (override with `window.FOODCOURT_STAFF_PIN`). WhatsApp alerts are optional and off until you add secrets later.
 
 To exercise the **shared** API on your machine:
 
 ```bash
-cp .dev.vars.example .dev.vars   # edit PIN / WhatsApp if you want
+cp .dev.vars.example .dev.vars   # STAFF_PIN is enough; WhatsApp secrets can stay blank
 npm run api:dev                  # Worker at http://localhost:8787
 ```
 
@@ -62,7 +62,7 @@ You can also open `index.html` through any static file server. A module-capable 
 - Pickup slots start 20 minutes from now, every 15 minutes, last slot 15 minutes before close
 - Saturday-only brunch is disabled on other days — **createOrder rejects it** even if the cart was stale
 - Kitchen counter board at `/kitchen.html` (Received → Preparing → Ready → Collected, auto-refresh)
-- WhatsApp ping to the kitchen phone on each new pre-order (Worker; fail-soft)
+- Optional WhatsApp ping to the kitchen phone (Worker hook is ready; **off until you set secrets later** — orders still save)
 
 ## Deploy to thefood-court.co.za (Pages)
 
@@ -99,11 +99,9 @@ Free Cloudflare account is enough (Workers + KV).
    npx wrangler kv namespace create ORDERS --preview
    ```
 4. Paste the two ids into [`wrangler.toml`](wrangler.toml) (`id` and `preview_id`).
-5. Put secrets (see table below):
+5. Put the kitchen PIN (WhatsApp secrets are optional — skip until you have a number):
    ```bash
    npx wrangler secret put STAFF_PIN
-   npx wrangler secret put KITCHEN_WHATSAPP
-   npx wrangler secret put CALLMEBOT_APIKEY
    ```
 6. Deploy: `npm run api:deploy` (or `npx wrangler deploy`).
 7. Copy the printed `*.workers.dev` URL into `js/config.js` as `FOODCOURT_API_URL` and deploy Pages.
@@ -118,26 +116,26 @@ Menu prices live in [`js/data/menu.js`](js/data/menu.js). The Worker **bundles t
 | --- | --- | --- | --- |
 | `FOODCOURT_API_URL` | `js/config.js` or `window.FOODCOURT_API_URL` | For live kitchen | Worker origin, no trailing slash |
 | `STAFF_PIN` | Worker secret (or `.dev.vars` locally) | Kitchen board | Till PIN. Local mock default is `1234` |
-| `KITCHEN_WHATSAPP` | Worker secret | For WhatsApp | Kitchen phone in E.164 **without** spaces, e.g. `27821234567` or `+27821234567` |
-| `CALLMEBOT_APIKEY` | Worker secret | For CallMeBot | API key from CallMeBot (recommended simple SA path) |
-| `TWILIO_ACCOUNT_SID` | Worker secret | Twilio alt. | Twilio account |
-| `TWILIO_AUTH_TOKEN` | Worker secret | Twilio alt. | Twilio token |
-| `TWILIO_WHATSAPP_FROM` | Worker secret | Twilio alt. | e.g. `whatsapp:+14155238886` (sandbox or live sender) |
+| `KITCHEN_WHATSAPP` | Worker secret | No — later | Kitchen phone in E.164, e.g. `27821234567` or `+27821234567` |
+| `CALLMEBOT_APIKEY` | Worker secret | No — later | CallMeBot key (simple SA WhatsApp path) |
+| `TWILIO_ACCOUNT_SID` | Worker secret | No — later | Twilio account |
+| `TWILIO_AUTH_TOKEN` | Worker secret | No — later | Twilio token |
+| `TWILIO_WHATSAPP_FROM` | Worker secret | No — later | e.g. `whatsapp:+14155238886` (sandbox or live sender) |
 
-If WhatsApp is not configured, **the order still saves**. The kitchen board shows a banner. Never put secrets in the static Pages files.
+WhatsApp is **not required** to run the kitchen board or to place a pre-order. If those secrets are unset, the Worker skips the ping and still saves the order. Never put secrets in the static Pages files.
 
-### WhatsApp setup (CallMeBot — simple SA path)
+### Turn on WhatsApp later (optional)
 
-This is the default provider when Twilio is not fully configured.
+Skip this until you have a kitchen phone number. The hook already lives in the Worker (`notifyKitchenWhatsApp`); it fail-softs when nothing is configured.
+
+**CallMeBot (simple SA path)** — used when Twilio is not fully configured:
 
 1. From the **kitchen phone**, WhatsApp the CallMeBot setup number (see [CallMeBot WhatsApp](https://www.callmebot.com/blog/free-api-whatsapp-messages/)) and wait for the API key.
-2. Set `KITCHEN_WHATSAPP` to that phone in E.164 (`2782…`).
+2. `npx wrangler secret put KITCHEN_WHATSAPP` — E.164, e.g. `2782…` or `+2782…`.
 3. `npx wrangler secret put CALLMEBOT_APIKEY` with the key they sent you.
 4. Place a test pre-order. The phone should get a short message: order `FC-…`, pickup time, items, name, phone.
 
-### WhatsApp setup (Twilio — alternative)
-
-If `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` are all set, the Worker uses Twilio instead of CallMeBot.
+**Twilio (alternative)** — if `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` are all set, the Worker uses Twilio instead of CallMeBot.
 
 1. Create a Twilio account and enable WhatsApp (sandbox is enough to trial).
 2. Join the sandbox from the kitchen phone.
