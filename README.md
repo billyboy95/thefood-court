@@ -75,7 +75,7 @@ This repo is a **static GitHub Pages** site. Custom domain `thefood-court.co.za`
 5. Save. HTTPS should stay on for `thefood-court.co.za`.
 6. DNS: the domain must keep pointing at GitHub Pages (`192.168.2.2` A records or the `*.github.io` CNAME GitHub shows for this repo).
 
-[`404.html`](./404.html) sends unknown paths back to the app so `/cart` and `/order/…` still work on Pages. `/kitchen.html` is a real file (bookmark that on the till laptop/TV). `/kitchen` redirects there.
+[`404.html`](./404.html) sends unknown paths back to the app so `/cart` and `/order/…` still work on Pages. `/kitchen.html` is a real file (bookmark that on the till laptop/TV). `/kitchen` shows the same board.
 
 There is no build step. What you push is what goes live.
 
