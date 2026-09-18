@@ -28,7 +28,10 @@
   <noscript>
     <p style="padding:24px;font-family:sans-serif">Turn on JavaScript to pre-order from The Food Court.</p>
   </noscript>
-  <script>window.FOODCOURT_API_URL = window.FOODCOURT_API_URL || "";</script>
+  <script>
+    // Shared orders API (Cloudflare Worker). Empty = this browser only. See README.
+    window.FOODCOURT_API_URL = window.FOODCOURT_API_URL || "";
+  </script>
   <script type="module" src="/js/main.js"></script>
 </body>
 </html>

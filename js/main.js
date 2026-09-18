@@ -43,6 +43,11 @@ async function paint(route) {
   const now = new Date();
   const slots = getPickupSlots(now);
 
+  if (route.name === 'kitchen') {
+    window.location.replace('/kitchen.html');
+    return;
+  }
+
   if (route.name === 'menu') {
     root.innerHTML = renderMenu({
       items: getMenu(),

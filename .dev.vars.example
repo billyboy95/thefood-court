@@ -1,0 +1,9 @@
+# Copy to .dev.vars for `npx wrangler dev` (never commit the real file).
+STAFF_PIN=1234
+KITCHEN_WHATSAPP=
+CALLMEBOT_APIKEY=
+
+# Optional — if all three are set, Twilio WhatsApp is used instead of CallMeBot.
+# TWILIO_ACCOUNT_SID=
+# TWILIO_AUTH_TOKEN=
+# TWILIO_WHATSAPP_FROM=whatsapp:+14155238886

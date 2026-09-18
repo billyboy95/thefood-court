@@ -1,0 +1,24 @@
+name = "thefood-court-api"
+main = "worker/src/index.js"
+compatibility_date = "2025-10-01"
+
+# Local: npx wrangler dev  →  http://localhost:8787
+# Secrets (production):
+#   npx wrangler secret put STAFF_PIN
+#   npx wrangler secret put KITCHEN_WHATSAPP
+#   npx wrangler secret put CALLMEBOT_APIKEY
+# Optional Twilio instead of CallMeBot:
+#   npx wrangler secret put TWILIO_ACCOUNT_SID
+#   npx wrangler secret put TWILIO_AUTH_TOKEN
+#   npx wrangler secret put TWILIO_WHATSAPP_FROM
+
+[dev]
+port = 8787
+ip = "127.0.0.1"
+
+# Create with: npx wrangler kv namespace create ORDERS
+# Then paste the id (and preview_id from `kv namespace create ORDERS --preview`).
+[[kv_namespaces]]
+binding = "ORDERS"
+id = "00000000000000000000000000000000"
+preview_id = "00000000000000000000000000000000"
