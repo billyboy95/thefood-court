@@ -1,7 +1,7 @@
 {
   "name": "The Food Court",
   "short_name": "Food Court",
-  "description": "Pre-order pickup at EASTC campus Food Court",
+  "description": "EASTC campus food pre-order, wallet and collection",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1f3a",

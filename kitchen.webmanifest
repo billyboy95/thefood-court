@@ -1,0 +1,9 @@
+{
+  "name": "EASTC Food Court Kitchen",
+  "short_name": "FC Kitchen",
+  "start_url": "/kitchen.html",
+  "display": "standalone",
+  "background_color": "#0b1f3a",
+  "theme_color": "#0b1f3a",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
