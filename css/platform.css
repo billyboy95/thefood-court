@@ -1,0 +1,126 @@
+:root {
+  --navy: #0b1f3a;
+  --navy-2: #16325c;
+  --gold: #e0b25a;
+  --gold-2: #f3d48a;
+  --ink: #1b140f;
+  --muted: #6d645c;
+  --line: #eadfce;
+  --cream: #f7f1e8;
+  --card: #fffdf9;
+  --danger: #9f1c16;
+  --ok: #1f7a4d;
+  --shadow: 0 12px 30px rgba(11, 31, 58, 0.08);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #071525;
+  color: var(--ink);
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+img { max-width: 100%; display: block; }
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: var(--cream);
+  position: relative;
+  overflow-x: hidden;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--navy);
+  color: white;
+}
+.mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #c81e1e;
+  border: 2px solid var(--gold);
+  font-weight: 800;
+  flex: none;
+}
+.brand { flex: 1; min-width: 0; }
+.brand strong, h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; letter-spacing: -0.02em; }
+.brand strong { display: block; font-size: 16px; }
+.brand span, .eyebrow { color: var(--gold); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+.screen { padding: 16px 16px 188px; }
+.card, .item, .panel {
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.stack { display: grid; gap: 12px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
+.muted { color: var(--muted); font-size: 13px; }
+.btn, .add {
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 700;
+}
+.btn.secondary { background: white; color: var(--navy); border: 1px solid var(--line); }
+.btn.gold { background: var(--gold); color: var(--navy); }
+.btn.danger { background: var(--danger); }
+.btn.full, .add.full { width: 100%; }
+.field { display: grid; gap: 6px; font-size: 14px; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+}
+.alert { background: #fff4f2; color: var(--danger); border-radius: 12px; padding: 10px 12px; }
+.ok { background: #eef8f2; color: var(--ok); border-radius: 12px; padding: 10px 12px; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.chip { border: 0; background: white; border-radius: 999px; padding: 8px 12px; white-space: nowrap; }
+.chip.on { background: var(--navy); color: white; }
+.item { display: grid; grid-template-columns: 1fr 92px; gap: 10px; padding: 12px; margin-bottom: 12px; }
+.item img { width: 92px; height: 92px; object-fit: cover; border-radius: 14px; }
+.add {
+  width: 36px; height: 36px; padding: 0; border-radius: 50%;
+}
+.cartbar, .tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 100%);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: white;
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  z-index: 6;
+}
+.cartbar { bottom: 72px; z-index: 5; }
+.tabbar { bottom: 0; }
+.tabbar button { flex: 1; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; }
+.tabbar button.on { color: var(--navy); }
+.pill { display: inline-block; border-radius: 999px; padding: 4px 8px; background: #fff6e4; color: #8a5a10; font-size: 12px; font-weight: 700; }
+.big { font-size: 42px; margin: 0; }
+.qr { width: min(100%, 280px); margin: 0 auto; background: white; padding: 12px; border-radius: 16px; }
+.pay-body { background: var(--cream); }
+.pay-body .card { max-width: 420px; margin: 24px auto; padding: 20px; }
+.notice { font-size: 13px; background: white; border-radius: 12px; padding: 12px; }
+.pos-app { background: #f3f6fb; }
+.queue-card { padding: 14px; margin-bottom: 12px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 360px) { .split { grid-template-columns: 1fr; } }

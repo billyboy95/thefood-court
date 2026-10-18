@@ -6,3 +6,8 @@ node_modules/
 .wrangler/
 .dev.vars
 .dev.vars.local
+data/
+.env
+test-results/
+playwright-report/
+blob-report/
