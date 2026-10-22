@@ -21,12 +21,21 @@ export const NEXT_ACTION = {
 };
 
 export const DEFAULT_STAFF_PIN = '1234';
+export const DEFAULT_CHEF_PIN = '2468';
+export const PAYMENT_METHODS = ['wallet', 'card', 'cash'];
+
+export function normalizePaymentMethod(value) {
+  const method = String(value || '').trim().toLowerCase();
+  if (!method || method === 'collection' || method === 'pay_on_collection' || method === 'counter') return 'cash';
+  if (PAYMENT_METHODS.includes(method)) return method;
+  throw new Error('Choose wallet, card, or pay on collection.');
+}
 
 /**
  * Validate checkout input and build a pay-at-counter order.
  * Recomputes totals from the menu. Rejects day-gated items for the pickup day.
  */
-export function buildOrder(input, { getMenuItem, now = new Date(), source = 'mock' } = {}) {
+export function buildOrder(input, { getMenuItem, now = new Date(), source = 'mock', isSoldOut } = {}) {
   if (typeof getMenuItem !== 'function') {
     throw new Error('Menu is not available.');
   }
@@ -56,6 +65,8 @@ export function buildOrder(input, { getMenuItem, now = new Date(), source = 'moc
     throw new Error('Your cart is empty.');
   }
 
+  const paymentMethod = normalizePaymentMethod(input?.paymentMethod);
+
   for (const line of requested) {
     const item = getMenuItem(line.itemId);
     if (!item) {
@@ -63,6 +74,9 @@ export function buildOrder(input, { getMenuItem, now = new Date(), source = 'moc
     }
     if (item.availableDays?.length && !item.availableDays.includes(slot.dow)) {
       throw new Error(`${item.name} is not available for that pickup day.`);
+    }
+    if (typeof isSoldOut === 'function' && isSoldOut(item.id)) {
+      throw new Error(`${item.name} is sold out.`);
     }
   }
 
@@ -89,10 +103,33 @@ export function buildOrder(input, { getMenuItem, now = new Date(), source = 'moc
     })),
     itemCount: totals.itemCount,
     totalCents: totals.totalCents,
-    payOnCollection: true,
+    paymentMethod,
+    paymentStatus: paymentMethod === 'cash' ? 'unpaid' : 'pending',
+    payOnCollection: paymentMethod === 'cash',
+    studentId: input?.studentId || null,
+    loyaltyRedeemed: false,
+    discountCents: 0,
+    reminderSentAt: null,
+    noShowActionTakenAt: null,
+    cancelReason: null,
+    demo: false,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     source,
+  };
+}
+
+export function cancelOrderRecord(order, now = new Date(), { reason = 'kitchen', paymentStatus = 'refunded' } = {}) {
+  if (!order) throw new Error('Order not found.');
+  if (order.status === 'collected' || order.status === 'cancelled' || order.status === 'no_show') {
+    throw new Error('This order can no longer be cancelled.');
+  }
+  return {
+    ...order,
+    status: 'cancelled',
+    paymentStatus: order.paymentStatus === 'unpaid' && paymentStatus === 'refunded' ? 'unpaid' : paymentStatus,
+    cancelReason: reason,
+    updatedAt: now.toISOString(),
   };
 }
 
@@ -147,7 +184,9 @@ export function formatKitchenWhatsApp(order) {
   ];
   if (order.notes) lines.push(`Notes: ${order.notes}`);
   lines.push(`Total ${formatZAR(order.totalCents)}`);
-  lines.push('Pay at counter');
+  if (order.paymentMethod === 'wallet') lines.push(order.totalCents === 0 ? 'Free meal · loyalty' : 'Paid from wallet');
+  else if (order.paymentMethod === 'card') lines.push('Paid by card');
+  else lines.push('Pay at counter');
   return lines.join('\n');
 }
 
@@ -160,8 +199,7 @@ export function kitchenWhatsAppDigits(raw) {
 
 export function whatsappProvidersConfigured(env = {}) {
   const phone = kitchenWhatsAppDigits(env.KITCHEN_WHATSAPP);
-  const twilio =
-    Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_WHATSAPP_FROM);
-  const callmebot = Boolean(env.CALLMEBOT_APIKEY);
-  return { phone, twilio: twilio && Boolean(phone), callmebot: callmebot && Boolean(phone) };
+  const twilio = Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_WHATSAPP_FROM);
+  const meta = Boolean(env.WHATSAPP_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID);
+  return { phone, twilio: twilio && Boolean(phone), meta: meta && Boolean(phone) };
 }

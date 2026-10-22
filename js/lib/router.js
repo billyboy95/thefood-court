@@ -5,6 +5,13 @@ export function createRouter({ render, windowObj = window }) {
     if (path === '/') return { name: 'menu' };
     if (path === '/cart') return { name: 'cart' };
     if (path === '/checkout') return { name: 'checkout' };
+    if (path === '/wallet') return { name: 'wallet' };
+    if (path === '/specials') return { name: 'specials' };
+    if (path === '/chef') return { name: 'chef' };
+    if (path === '/counter') return { name: 'counter' };
+    if (path === '/kitchen/reports') return { name: 'reports' };
+    if (path === '/kitchen/stock') return { name: 'stock' };
+    if (path === '/kitchen/settings') return { name: 'settings' };
     if (path === '/kitchen' || path === '/kitchen.html') return { name: 'kitchen' };
     if (order) return { name: 'order', id: decodeURIComponent(order[1]) };
     return { name: 'notfound' };

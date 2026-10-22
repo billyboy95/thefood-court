@@ -155,7 +155,8 @@ html.is-kitchen #app,
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .k-banner,
@@ -316,6 +317,63 @@ html.is-kitchen #app,
   color: #8a7d6e;
   font-size: 12px;
   padding: 8px 16px 24px;
+}
+
+.k-tools {
+  display: grid;
+  gap: 12px;
+  padding: 12px 18px 0;
+}
+.k-till,
+.k-eighty,
+.k-forecast {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 12px;
+}
+.k-till h2,
+.k-eighty h2,
+.k-forecast h2 {
+  color: var(--gold);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.k-till label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.k-till input,
+.k-till select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 0;
+  padding: 10px 12px;
+}
+.k-till-actions,
+.eighty-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.eighty-row {
+  justify-content: space-between;
+  min-height: 44px;
+}
+.till-video {
+  width: 100%;
+  max-height: 220px;
+  border-radius: 12px;
+  background: #000;
+  margin-top: 8px;
+}
+.k-top .k-meta {
+  flex-wrap: wrap;
 }
 
 @media (max-width: 899px) {

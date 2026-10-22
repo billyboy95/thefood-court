@@ -4,6 +4,7 @@ import { escapeHtml } from './lib/dom.js';
 import { formatZAR } from './lib/money.js';
 import { formatSaPhone } from './lib/phone.js';
 import { partsInTZ } from './lib/hours.js';
+import { paymentLabel } from './domain/notify.js';
 
 function clockLabel(now) {
   const p = partsInTZ(now);
@@ -53,7 +54,7 @@ function orderCard(order, now) {
         ${overdue ? 'OVERDUE · ' : ''}Pickup ${escapeHtml(when)}
       </p>
       <p class="k-who">${escapeHtml(order.customerName)}</p>
-      <p class="k-phone">${escapeHtml(formatSaPhone(order.phone))}</p>
+      <p class="k-phone">${escapeHtml(formatSaPhone(order.phone))} · ${escapeHtml(paymentLabel(order))}</p>
       <ul class="k-items">
         ${order.items
           .map((line) => `<li>${line.qty}× ${escapeHtml(line.name)}</li>`)
@@ -65,6 +66,7 @@ function orderCard(order, now) {
           ? `<button type="button" class="btn k-action" data-advance="${escapeHtml(order.id)}" data-status="${escapeHtml(action.status)}">${escapeHtml(action.label)}</button>`
           : ''
       }
+      <button type="button" class="btn btn-ghost k-action" data-cancel="${escapeHtml(order.id)}">Cancel & refund</button>
     </article>`;
 }
 
@@ -85,10 +87,16 @@ export function renderKitchenBoard({
   orders = [],
   now = new Date(),
   demo = false,
+  demoLabel = '',
   filter = 'all',
   muted = false,
   error = '',
   flash = '',
+  menu = [],
+  soldOut = {},
+  portions = {},
+  forecast = [],
+  nfc = false,
 } = {}) {
   const counts = {
     received: orders.filter((o) => o.status === 'received').length,
@@ -108,13 +116,17 @@ export function renderKitchenBoard({
       <div class="k-meta">
         <span class="k-live"><i></i> Live</span>
         <span class="k-count">${orders.length} open</span>
+        <a class="k-icon-btn" href="/kitchen/reports">Reports</a>
+        <a class="k-icon-btn" href="/kitchen/stock">Stock</a>
+        <a class="k-icon-btn" href="/kitchen/settings">Settings</a>
+        <a class="k-icon-btn" href="/counter">Counter</a>
         <button type="button" class="k-icon-btn" data-mute aria-pressed="${muted ? 'true' : 'false'}">${muted ? 'Sound off' : 'Sound on'}</button>
         <button type="button" class="k-icon-btn" data-lock>Lock</button>
       </div>
     </header>
     ${
       demo
-        ? `<p class="k-banner">Demo mode — orders on this device only. Deploy the Cloudflare Worker and set FOODCOURT_API_URL so the till sees student phones.</p>`
+        ? `<p class="k-banner">${escapeHtml(demoLabel || 'Demo mode — sample data on this device. Add Supabase keys in js/config.js to share orders.')}</p>`
         : ''
     }
     ${error ? `<p class="alert k-alert" role="alert">${escapeHtml(error)}</p>` : ''}
@@ -125,6 +137,44 @@ export function renderKitchenBoard({
       <button type="button" class="chip ${filter === 'preparing' ? 'is-active' : ''}" data-filter="preparing">Preparing ${counts.preparing}</button>
       <button type="button" class="chip ${filter === 'ready' ? 'is-active' : ''}" data-filter="ready">Ready ${counts.ready}</button>
     </nav>
+    <section class="k-tools">
+      <form id="till-form" class="k-till">
+        <h2>Till</h2>
+        <label><span>Amount (cents) if no order is selected</span><input name="amountCents" inputmode="numeric" placeholder="6900"></label>
+        <label><span>Order</span><select name="orderId"><option value="">Counter amount</option>${orders.map((order) => `<option value="${escapeHtml(order.id)}">${escapeHtml(order.orderNumber)} · ${formatZAR(order.totalCents)}</option>`).join('')}</select></label>
+        <label><span>Student number</span><input name="studentNumber" inputmode="numeric" placeholder="20240001"></label>
+        <label><span>Student PIN</span><input name="studentPin" type="password" inputmode="numeric"></label>
+        <label><span>QR payload</span><input name="token" placeholder="FC1.…" autocomplete="off"></label>
+        <div class="k-till-actions">
+          <button class="btn k-action" type="submit" name="method" value="wallet">Take from wallet</button>
+          <button class="btn k-action" type="submit" name="method" value="card">Card tap (Yoco)</button>
+          <button class="btn btn-ghost k-action" type="submit" name="method" value="cash">Cash</button>
+          <button class="btn btn-ghost k-action" type="button" data-scan>Scan QR</button>
+          <button class="btn btn-ghost k-action" type="button" data-nfc ${nfc ? '' : 'disabled'}>${nfc ? 'Tap card' : 'NFC unavailable'}</button>
+        </div>
+        <video class="till-video" data-video playsinline hidden></video>
+      </form>
+      <div class="k-eighty">
+        <h2>86 / portions</h2>
+        ${menu
+          .map(
+            (item) => `
+          <div class="eighty-row">
+            <span>${escapeHtml(item.name)}${soldOut[item.id] ? ' · sold out' : ''}${portions[item.id] != null ? ` · ${portions[item.id]} left` : ''}</span>
+            <button type="button" class="btn btn-ghost" data-soldout="${escapeHtml(item.id)}" data-sold="${soldOut[item.id] ? '1' : '0'}">${soldOut[item.id] ? 'Put back' : '86'}</button>
+          </div>`,
+          )
+          .join('')}
+      </div>
+      ${
+        forecast.length
+          ? `<div class="k-forecast"><h2>Prep forecast</h2>${forecast
+              .slice(0, 6)
+              .map((row) => `<p>${escapeHtml(row.name)} · make ${row.suggestQty} <em>(history ${row.historyAvg}, pre-orders ${row.preorders})</em></p>`)
+              .join('')}</div>`
+          : ''
+      }
+    </section>
     <div class="k-board" data-filter="${escapeHtml(filter)}">
       ${column('received', orders, now)}
       ${column('preparing', orders, now)}
