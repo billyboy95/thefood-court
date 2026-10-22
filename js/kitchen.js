@@ -1,4 +1,5 @@
 import { createOrderApi } from './api/client.js';
+import { followPayment } from './lib/payRedirect.js';
 import { getLocalStorage } from './lib/dom.js';
 import { renderKitchenBoard, renderKitchenPin } from './kitchenViews.js';
 
@@ -16,6 +17,11 @@ const ui = {
   orders: [],
   whatsapp: false,
   demo: false,
+  demoLabel: '',
+  menu: [],
+  soldOut: {},
+  portions: {},
+  forecast: [],
   filter: 'all',
   muted: false,
   error: '',
@@ -48,6 +54,12 @@ function paint() {
     muted: ui.muted,
     error: ui.error,
     flash: ui.flash,
+    demoLabel: ui.demoLabel,
+    menu: ui.menu,
+    soldOut: ui.soldOut,
+    portions: ui.portions,
+    forecast: ui.forecast,
+    nfc: typeof globalThis.NDEFReader === 'function',
   });
 }
 
@@ -112,6 +124,19 @@ async function refresh({ announce = false } = {}) {
     ui.orders = orders;
     ui.whatsapp = Boolean(result?.whatsapp);
     ui.demo = Boolean(result?.demo) || orderApi.mode === 'mock';
+    ui.demoLabel = result?.demoLabel || '';
+    ui.menu = result?.menu || ui.menu;
+    ui.soldOut = result?.soldOut || {};
+    ui.portions = result?.portions || {};
+    ui.forecast = result?.forecast || [];
+    if (!ui.forecast.length && orderApi.getForecast) {
+      try {
+        const forecast = await orderApi.getForecast(ui.pin);
+        ui.forecast = forecast.rows || [];
+      } catch {
+        /* forecast is optional on the board */
+      }
+    }
     ui.error = '';
     paint();
   } catch (err) {
@@ -151,6 +176,93 @@ function eventEl(event) {
   return t instanceof Element ? t : t?.parentElement;
 }
 
+let scanStop = null;
+
+async function startScan() {
+  const video = root?.querySelector('[data-video]');
+  if (!video || !navigator.mediaDevices?.getUserMedia) {
+    ui.error = 'This browser has no camera. Type the code or the student number.';
+    paint();
+    return;
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  video.hidden = false;
+  video.srcObject = stream;
+  await video.play();
+  const Detector = globalThis.BarcodeDetector;
+  if (!Detector) {
+    ui.flash = 'Camera is on, but QR scanning needs Chrome. Type the FC1 code.';
+    scanStop = () => stream.getTracks().forEach((track) => track.stop());
+    paint();
+    const again = root?.querySelector('[data-video]');
+    if (again) {
+      again.hidden = false;
+      again.srcObject = stream;
+    }
+    return;
+  }
+  const detector = new Detector({ formats: ['qr_code'] });
+  let stopped = false;
+  scanStop = () => {
+    stopped = true;
+    stream.getTracks().forEach((track) => track.stop());
+  };
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const codes = await detector.detect(video);
+      const raw = codes[0]?.rawValue;
+      if (raw) {
+        const input = root.querySelector('input[name="token"]');
+        if (input) input.value = raw;
+        scanStop();
+        ui.flash = 'QR read. Confirm the till payment.';
+        paint();
+        return;
+      }
+    } catch {
+      /* next frame */
+    }
+    if (!stopped) requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+async function startNfc() {
+  if (!globalThis.NDEFReader) {
+    ui.error = 'NFC is not available. Use the QR code.';
+    paint();
+    return;
+  }
+  try {
+    const reader = new globalThis.NDEFReader();
+    await reader.scan();
+    ui.flash = 'Hold the student card to the till.';
+    paint();
+    reader.onreading = async (event) => {
+      try {
+        const form = root.querySelector('#till-form');
+        const data = form ? new FormData(form) : new FormData();
+        await orderApi.tillCharge({
+          pin: ui.pin,
+          method: 'wallet',
+          nfcUid: event.serialNumber || '',
+          orderId: String(data.get('orderId') || ''),
+          amountCents: Number(data.get('amountCents') || 0),
+        });
+        ui.flash = 'Card tapped.';
+        await refresh();
+      } catch (err) {
+        ui.error = err.message;
+        paint();
+      }
+    };
+  } catch (err) {
+    ui.error = err.message || 'NFC was blocked.';
+    paint();
+  }
+}
+
 function bind() {
   document.addEventListener('submit', (event) => {
     if (!onKitchenPage() || event.target.id !== 'kitchen-pin-form') return;
@@ -167,6 +279,10 @@ function bind() {
     const mute = t.closest('[data-mute]');
     const filter = t.closest('button[data-filter]');
     const advance = t.closest('[data-advance]');
+    const cancel = t.closest('[data-cancel]');
+    const sold = t.closest('[data-soldout]');
+    const scan = t.closest('[data-scan]');
+    const nfc = t.closest('[data-nfc]');
 
     if (lock) {
       forgetPin();
@@ -200,6 +316,51 @@ function bind() {
         ui.error = err.message || 'Could not update that order.';
         paint();
       }
+    }
+    if (cancel) {
+      cancel.disabled = true;
+      try {
+        await orderApi.cancelOrder(cancel.dataset.cancel, ui.pin);
+        await refresh();
+      } catch (err) {
+        ui.error = err.message || 'Could not cancel that order.';
+        paint();
+      }
+    }
+    if (sold) {
+      try {
+        await orderApi.setSoldOut(sold.dataset.soldout, sold.dataset.sold !== '1', ui.pin);
+        await refresh();
+      } catch (err) {
+        ui.error = err.message || 'Could not update that item.';
+        paint();
+      }
+    }
+    if (scan) startScan();
+    if (nfc) startNfc();
+  });
+
+  document.addEventListener('submit', async (event) => {
+    if (!onKitchenPage() || event.target.id !== 'till-form') return;
+    event.preventDefault();
+    const data = new FormData(event.target);
+    const method = event.submitter?.value || 'wallet';
+    try {
+      const result = await orderApi.tillCharge({
+        pin: ui.pin,
+        method,
+        orderId: String(data.get('orderId') || ''),
+        amountCents: Number(data.get('amountCents') || 0),
+        studentNumber: String(data.get('studentNumber') || ''),
+        studentPin: String(data.get('studentPin') || ''),
+        token: String(data.get('token') || ''),
+      });
+      if (followPayment(result.payment)) return;
+      ui.flash = result.demo ? 'Demo till payment recorded. No provider was charged.' : 'Payment taken.';
+      await refresh();
+    } catch (err) {
+      ui.error = err.message || 'Till payment failed.';
+      paint();
     }
   });
 

@@ -4,6 +4,7 @@ import { escapeHtml } from './lib/dom.js';
 import { formatZAR } from './lib/money.js';
 import { formatSaPhone } from './lib/phone.js';
 import { isItemAvailable, kitchenStatus, partsInTZ } from './lib/hours.js';
+import { paymentLabel } from './domain/notify.js';
 
 function qtyControl(itemId, qty) {
   if (qty < 1) {
@@ -40,13 +41,28 @@ function itemCard(item, qty, { special = false, available = true } = {}) {
     </article>`;
 }
 
-export function renderMenu({ items, cart, category, query, slots, now }) {
+function soldOutMap(soldOut) {
+  return soldOut || {};
+}
+
+export function renderMenu({ items, cart, category, query, slots, now, soldOut = {}, todaySpecial = null, demoLabel = '' }) {
   const status = kitchenStatus(now);
   const dow = partsInTZ(now).dow;
+  const hidden = soldOutMap(soldOut);
   const q = query.trim().toLowerCase();
-  const specials = items.filter((item) => item.specialOn?.includes(dow));
+  const published = todaySpecial?.published || null;
+  const linked = published
+    ? items.find((item) => item.id === published.itemId) ||
+      items.find((item) => item.name.toLowerCase() === String(published.name).toLowerCase())
+    : null;
+  const specials = published
+    ? linked && !hidden[linked.id]
+      ? [linked]
+      : []
+    : items.filter((item) => item.specialOn?.includes(dow) && !hidden[item.id]);
   const specialIds = new Set(specials.map((item) => item.id));
   const visible = items.filter((item) => {
+    if (hidden[item.id]) return false;
     if (category !== 'all' && item.category !== category) return false;
     if (category === 'all' && !q && specialIds.has(item.id)) return false;
     if (!q) return true;
@@ -62,19 +78,49 @@ export function renderMenu({ items, cart, category, query, slots, now }) {
     )
     .join('');
 
+  const chefPhoto =
+    published && !linked
+      ? `
+        <article class="item-card">
+          <img class="thumb" src="${escapeHtml(published.imageUrl)}" alt="" width="88" height="88">
+          <div class="item-body">
+            <div class="item-top">
+              <h3>${escapeHtml(published.name)}</h3>
+              <span class="price">${formatZAR(published.priceCents)}</span>
+            </div>
+            <p class="desc">${escapeHtml(published.caption || "Today's special")}</p>
+            <div class="badges"><span class="badge gold">Chef</span>${published.demo ? '<span class="badge">Demo</span>' : ''}</div>
+          </div>
+        </article>`
+      : '';
+
   const specialBlock =
-    category === 'all' && !q && specials.length
+    category === 'all' && !q
       ? `
         <section class="specials">
           <p class="eyebrow">Today’s special</p>
-          ${specials
-            .map((item) =>
-              itemCard(item, cart.qty(item.id), {
-                special: true,
-                available: isItemAvailable(item, slots, now),
-              }),
-            )
-            .join('')}
+          ${
+            published && linked
+              ? itemCard(linked, cart.qty(linked.id), {
+                  special: true,
+                  available: isItemAvailable(linked, slots, now) && !hidden[linked.id],
+                })
+              : ''
+          }
+          ${chefPhoto}
+          ${
+            !published
+              ? specials
+                  .map((item) =>
+                    itemCard(item, cart.qty(item.id), {
+                      special: true,
+                      available: isItemAvailable(item, slots, now),
+                    }),
+                  )
+                  .join('') || '<p class="muted">Regular menu today — the chef has not posted a new special.</p>'
+              : ''
+          }
+          <p class="tiny-inline"><a data-link href="/specials">Specials archive</a></p>
         </section>`
       : '';
 
@@ -92,6 +138,7 @@ export function renderMenu({ items, cart, category, query, slots, now }) {
 
   return `
     ${renderHeader({ cart, back: false })}
+    ${demoLabel ? `<p class="demo-banner">${escapeHtml(demoLabel)}</p>` : ''}
     <section class="hero-card">
       <p class="eyebrow">Pre-order · pickup only</p>
       <h1>Skip the queue. We’ll have it ready.</h1>
@@ -149,14 +196,14 @@ export function renderCartPage({ cart }) {
         ? `<section class="summary">
              <div class="sum-row"><span>Items</span><span>${cart.itemCount}</span></div>
              <div class="sum-row total"><span>Total</span><span>${formatZAR(cart.totalCents)}</span></div>
-             <p class="pay-hint">Pay when you collect — cash or card at the counter.</p>
+             <p class="pay-hint">Wallet, card, or pay when you collect.</p>
              <a class="btn btn-gold btn-block" data-link href="/checkout">Go to checkout</a>
            </section>`
         : ''
     }`;
 }
 
-export function renderCheckout({ cart, slots, error = '', pending = false, form = {} }) {
+export function renderCheckout({ cart, slots, error = '', pending = false, form = {}, wallet = null, loyaltyText = '' }) {
   if (!cart.itemCount) {
     return `
       ${renderHeader({ cart, back: true, title: 'Checkout' })}
@@ -176,7 +223,7 @@ export function renderCheckout({ cart, slots, error = '', pending = false, form 
       const inner = list
         .map(
           (slot) =>
-            `<option value="${escapeHtml(slot.iso)}" ${form.pickupTime === slot.iso ? 'selected' : ''}>${escapeHtml(slot.displayTime)}</option>`,
+            `<option value="${escapeHtml(slot.iso)}" ${slot.full ? 'disabled' : ''} ${form.pickupTime === slot.iso ? 'selected' : ''}>${escapeHtml(slot.displayTime)}${slot.remaining == null ? '' : slot.full ? ' · Full' : ` · ${slot.remaining} left`}</option>`,
         )
         .join('');
       return `<optgroup label="${escapeHtml(label)}">${inner}</optgroup>`;
@@ -210,10 +257,17 @@ export function renderCheckout({ cart, slots, error = '', pending = false, form 
           <span>Notes <em>(optional)</em></span>
           <textarea name="notes" maxlength="240" rows="3" placeholder="No chilli, extra gravy, student number…">${escapeHtml(form.notes || '')}</textarea>
         </label>
-        <div class="pay-box">
-          <strong>Pay on collection</strong>
-          <p>Cash or card at the counter. No card details needed here.</p>
-        </div>
+        <fieldset class="pay-options">
+          <legend>How are you paying?</legend>
+          <label class="pay-option"><input type="radio" name="paymentMethod" value="wallet" ${form.paymentMethod === 'wallet' ? 'checked' : ''}> Pay from wallet${wallet ? ` · ${formatZAR(wallet.balanceCents)}` : ''}</label>
+          <label class="pay-option"><input type="radio" name="paymentMethod" value="card" ${form.paymentMethod === 'card' ? 'checked' : ''}> Pay online by card</label>
+          <label class="pay-option"><input type="radio" name="paymentMethod" value="cash" ${!form.paymentMethod || form.paymentMethod === 'cash' ? 'checked' : ''}> Pay on collection</label>
+        </fieldset>
+        ${
+          wallet
+            ? `<p class="muted">${escapeHtml(loyaltyText || '')} Signed in as ${escapeHtml(wallet.fullName)}.</p>`
+            : `<p class="muted"><a data-link href="/wallet">Sign in to a student wallet</a> to pay with credit or collect stamps.</p>`
+        }
         <button class="btn btn-gold btn-block" type="submit" ${pending ? 'disabled' : ''}>
           ${pending ? 'Placing order…' : `Place pre-order · ${formatZAR(cart.totalCents)}`}
         </button>
@@ -255,7 +309,7 @@ export function renderConfirmation({ order }) {
         <div class="sum-row"><span>Collecting</span><span>${escapeHtml(order.customerName)}</span></div>
         <div class="sum-row"><span>Phone</span><span>${escapeHtml(formatSaPhone(order.phone))}</span></div>
         <div class="sum-row"><span>Pickup</span><span>${escapeHtml(timeLabel)}</span></div>
-        <div class="sum-row"><span>Pay</span><span>At the counter</span></div>
+        <div class="sum-row"><span>Pay</span><span>${escapeHtml(paymentLabel(order))}</span></div>
         ${order.notes ? `<div class="sum-row"><span>Notes</span><span>${escapeHtml(order.notes)}</span></div>` : ''}
         <hr>
         ${order.items
@@ -267,9 +321,17 @@ export function renderConfirmation({ order }) {
         <div class="sum-row total"><span>Total</span><span>${formatZAR(order.totalCents)}</span></div>
       </div>
       <p class="pickup-line">${escapeHtml(venue.name)} · ${escapeHtml(venue.address)}</p>
+      ${
+        order.status === 'ready' || order.status === 'collected'
+          ? `<div class="rate-row" role="group" aria-label="Rate this order">
+              ${[1, 2, 3, 4, 5].map((score) => `<button type="button" class="btn btn-ghost rate-btn" data-rate="${score}" data-order="${escapeHtml(order.id)}">${score}</button>`).join('')}
+            </div>
+            <p class="muted">One tap after pickup. 1 is poor, 5 is great.</p>`
+          : `<p class="muted">Rating opens when the kitchen marks this ready.</p>`
+      }
       <div class="btn-row">
         <a class="btn btn-gold" data-link href="/">New order</a>
-        <a class="btn btn-ghost" href="${venue.phoneHref}">Call kitchen</a>
+        <a class="btn btn-ghost" data-link href="/wallet">Wallet</a>
       </div>
     </section>`;
 }
@@ -295,6 +357,7 @@ function renderHeader({ cart, back, title }) {
         <strong>${title ? escapeHtml(title) : escapeHtml(venue.name)}</strong>
         <span>Pickup · EASTC campus</span>
       </div>
+      <a class="icon-btn wallet-link" data-link href="/wallet" aria-label="Wallet">W</a>
       <a class="cart-icon" data-link href="/cart" aria-label="Open cart">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 6h15l-1.5 9h-12L5 3H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>

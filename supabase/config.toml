@@ -1,0 +1,16 @@
+project_id = "thefood-court"
+
+[api]
+enabled = true
+
+[functions.api]
+verify_jwt = false
+
+[functions.automations]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.payments-webhook]
+verify_jwt = false

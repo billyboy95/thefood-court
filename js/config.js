@@ -1,11 +1,12 @@
 /**
- * Shared kitchen API (Cloudflare Worker). Leave empty for localStorage demo mode.
+ * Supabase project used by the static site.
+ * Leave both values empty for on-device demo mode: every feature still runs,
+ * using sample data in this browser only. No secrets belong in this file.
  *
- * After `npx wrangler deploy`, paste the Worker URL here — both the student app
- * and /kitchen.html read this. Example:
- *   "https://thefood-court-api.<your-account>.workers.dev"
+ *   export const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+ *   export const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
  *
- * You can still override at runtime with window.FOODCOURT_API_URL in index.html
- * or kitchen.html (handy for pointing at http://localhost:8787).
+ * window.SUPABASE_URL / window.SUPABASE_ANON_KEY override these when set.
  */
-export const FOODCOURT_API_URL = '';
+export const SUPABASE_URL = '';
+export const SUPABASE_ANON_KEY = '';

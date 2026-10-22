@@ -2,24 +2,23 @@
 
 Pickup pre-order app for **The Food Court** on the EASTC Technocentric Varsity campus, 43 Maxwell Street, Kempton Park.
 
-Students and staff browse the board, add items, pick a collection time, and show the confirmation screen at the counter. Pay on collection (cash or card). This is not a venue brochure.
+Students browse the board, pay from a wallet, by card, or at the counter, and collect from a timed slot. Kitchen staff run the till, the 86 board, stock, and the day’s numbers from the same site.
 
 Live site: [thefood-court.co.za](https://thefood-court.co.za/)
 
-Kitchen board (staff PIN): [thefood-court.co.za/kitchen.html](https://thefood-court.co.za/kitchen.html)
-
 ## Architecture
 
-GitHub Pages is **static** — it cannot share orders between a student’s phone and the till. This repo therefore has two pieces:
+GitHub Pages stays the static host. Shared orders, wallets, stock, and schedules live in one Supabase project.
 
 | Piece | What it is | Where it runs |
 | --- | --- | --- |
-| Student app + kitchen screen | HTML / JS / CSS | GitHub Pages (`thefood-court.co.za`) |
-| Shared orders API | Cloudflare Worker + KV | `thefood-court-api.<account>.workers.dev` (or a custom `api.` host) |
+| Student app, wallet, counter, kitchen | HTML / JS / CSS | GitHub Pages (`thefood-court.co.za`) |
+| Database, Auth, Storage, RLS | Postgres | Supabase |
+| API, WhatsApp, payments, cron jobs | Edge Functions | `api`, `automations`, `whatsapp-webhook`, `payments-webhook` |
 
-Until the Worker URL is set, `createOrder` still saves in **this browser’s `localStorage`** so local demo works. The till will not see those orders. Point both `index.html` / `kitchen.html` at the Worker by setting `FOODCOURT_API_URL` (see below).
+Leave `SUPABASE_URL` and `SUPABASE_ANON_KEY` empty and the site runs entirely in this browser. That demo mode still exercises every screen, with seeded rows labelled **Sample demo data — not live sales**. Nothing on that device is visible to another phone.
 
-Pay stays **at the counter**. There is no card capture in the app.
+The anon key is the only value that belongs in the static site. Service-role and provider secrets stay in Supabase function secrets. They are never written to git.
 
 ## Run locally
 
@@ -30,153 +29,198 @@ npm test
 npm start
 ```
 
-Then open [http://localhost:5173](http://localhost:5173). `npm start` serves the static app with SPA fallback (`serve.json` keeps `.html` URLs). `/cart`, `/checkout`, `/order/:id`, and `/kitchen` load the app; `/kitchen.html` is a real file — bookmark that on the till laptop or TV.
+Open [http://localhost:5173](http://localhost:5173). `npm start` serves the static app with SPA fallback. `/kitchen.html` is a real file — bookmark that on the till laptop or TV.
 
-Local demo PIN for `/kitchen.html` is **`1234`** (override with `window.FOODCOURT_STAFF_PIN`). WhatsApp alerts are optional and off until you add secrets later.
+Demo sign-in (this browser only):
 
-To exercise the **shared** API on your machine:
+| Who | How |
+| --- | --- |
+| Students `20240001`, `20240002`, `20240003` | PIN `1234`. Email code `000000` (no email is sent). |
+| Kitchen manager | PIN `1234` on `/kitchen`, reports, stock, and settings. |
+| Chef upload | PIN `2468` on `/chef`. |
 
-```bash
-cp .dev.vars.example .dev.vars   # STAFF_PIN is enough; WhatsApp secrets can stay blank
-npm run api:dev                  # Worker at http://localhost:8787
-```
+Lerato (`20240002`) is one stamp from a free meal and under the R50 low-balance line. Amahle (`20240003`) has an empty wallet. Salad box is already sold out.
 
-In `js/config.js` (or the `window.FOODCOURT_API_URL` script in `index.html` and `kitchen.html`) set:
-
-```js
-export const FOODCOURT_API_URL = "http://localhost:8787";
-```
-
-Then run `npm start` as well. Student checkout and the kitchen board share the local Worker KV.
-
-You can also open `index.html` through any static file server. A module-capable server is required (do not use `file://`).
+WhatsApp, email, and card providers are no-ops until keys exist. Buttons still run, and the kitchen log shows the message that would have been sent.
 
 ## What ships
 
-- Menu categories (breakfast, lunch pots, grill, sides, drinks)
-- Item cards with ZAR prices from the published board
-- Sticky cart, quantity steppers, cart page
-- Checkout: name, South African phone number, pickup time, optional notes
-- Confirmation ticket with order number (`FC-…`)
-- Kitchen hours in `Africa/Johannesburg` (Mon–Fri 07:00–17:30, Sat 08:00–15:00, Sun closed)
-- Pickup slots start 20 minutes from now, every 15 minutes, last slot 15 minutes before close
-- Saturday-only brunch is disabled on other days — **createOrder rejects it** even if the cart was stale
-- Kitchen counter board at `/kitchen.html` (Received → Preparing → Ready → Collected, auto-refresh)
-- Optional WhatsApp ping to the kitchen phone (Worker hook is ready; **off until you set secrets later** — orders still save)
+- Menu, cart, and checkout. Default payment is pay on collection, so an order with no method still has `payOnCollection: true`.
+- Wallet: student number + PIN, or a 6-digit email code. Prepaid credit, ledger, purchase history. Balances cannot go negative. A kitchen cancel refunds a paid wallet order.
+- Till: rotating `FC1.` QR, student number + PIN, Web NFC where Android Chrome exposes a card serial, or a Yoco card tap.
+- Pickup slots, 8 orders each unless settings say otherwise. A full slot closes and the next free slot is named.
+- Loyalty: the 10th meal makes one unit of the dearest line free, then stamps reset.
+- Chef specials from an allowlisted WhatsApp photo (`Monday special: Burgers R55`) or `/chef`. If nothing arrives by 09:00 the printed menu special stays up. The board is never blank.
+- Public `/counter` of orders marked Ready, updated with the kitchen board.
+- `/kitchen/reports` for a manager: revenue by wallet, card, and cash, items, day and hour, specials, wallet liability, refunds, cost of sales, stock value, gross margin, CSV.
+- `/kitchen/stock`: ingredients, suppliers, cost, recipes, goods received, waste, stock-take variance, reorder list. Sales deduct the recipe.
+- `/kitchen/settings`: thresholds, times, and destination numbers. Provider keys are not on this page.
+- Scheduled jobs (pg_cron calls the `automations` function): low balance and optional auto top-up, no-show reminder then refund or write-off, 07:00 chef nudge, 09:00 default-menu check, stock alerts, end-of-day WhatsApp, Monday CSV email, morning prep forecast, nightly payment reconciliation, and low ratings to the manager.
 
-## Deploy to thefood-court.co.za (Pages)
+## Deploy the site (GitHub Pages)
 
-This repo is a **static GitHub Pages** site. Custom domain `thefood-court.co.za` is already set in [`CNAME`](./CNAME). [`.nojekyll`](./.nojekyll) keeps GitHub from running Jekyll so ES modules in `/js` are served as-is.
+This repo is a static GitHub Pages site. Custom domain `thefood-court.co.za` is already set in [`CNAME`](./CNAME). [`.nojekyll`](./.nojekyll) keeps GitHub from running Jekyll so ES modules in `/js` are served as-is.
 
 1. Merge to `main`.
 2. In the GitHub repo: **Settings → Pages**.
 3. Source: **Deploy from a branch**.
 4. Branch: `main` / folder: `/ (root)`.
 5. Save. HTTPS should stay on for `thefood-court.co.za`.
-6. DNS: the domain must keep pointing at GitHub Pages (`192.168.2.2` A records or the `*.github.io` CNAME GitHub shows for this repo).
+6. DNS: the domain must keep pointing at GitHub Pages.
 
-[`404.html`](./404.html) sends unknown paths back to the app so `/cart` and `/order/…` still work on Pages. `/kitchen.html` is a real file (bookmark that on the till laptop/TV). `/kitchen` shows the same board.
+[`404.html`](./404.html) sends unknown paths back into the app so `/wallet`, `/counter`, and `/kitchen/stock` still work. There is no build step.
 
-There is no build step. What you push is what goes live.
+## Going live
 
-**After the Worker is deployed**, set the API URL in [`js/config.js`](js/config.js):
+Do this once. After it, only menu or code changes need a Pages deploy, and only function changes need `supabase functions deploy`.
+
+### 1. Create the project
+
+1. Create a Supabase project.
+2. In **Database → Extensions**, enable **pg_cron** and **pg_net** before the migration. The schedules are skipped with a notice if either extension is missing; enable them and run the migration again.
+3. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and link the project:
+
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+```
+
+### 2. Run the migration
+
+One file creates the tables, the wallet trigger, RLS, report views, starter menu and recipes, the public `specials` storage bucket, and the cron jobs:
+
+```bash
+npx supabase db push
+```
+
+That applies [`supabase/migrations/20261022120000_init.sql`](supabase/migrations/20261022120000_init.sql). It does not insert sample orders. Demo data exists only in the browser.
+
+### 3. Set function secrets
+
+Hosted functions already receive `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Set the rest with `npx supabase secrets set NAME=value`. Blank names in [`.env.example`](.env.example) are the full list. A missing provider key makes that send a no-op; the order, stock movement, or job log is still saved.
+
+| Secret | Required | Purpose |
+| --- | --- | --- |
+| `STAFF_PIN` | Yes, for the live till | Manager PIN. Opens reports, stock, and settings. |
+| `STAFF_TILL_PIN` | No | Optional till-only PIN. Cannot open reports, stock, or settings. |
+| `CHEF_PIN` | Yes, for `/chef` | Web upload fallback. |
+| `YOCO_SECRET_KEY` | No | Card checkouts and refunds. Used before PayFast. |
+| `YOCO_WEBHOOK_SECRET` | No | If set, Yoco webhooks must send it in `x-yoco-signature` or `webhook-signature`. |
+| `PAYFAST_MERCHANT_ID` | No | Used only when Yoco is unset. |
+| `PAYFAST_MERCHANT_KEY` | No | PayFast. |
+| `PAYFAST_PASSPHRASE` | No | PayFast signature. |
+| `PAYFAST_SANDBOX` | No | `1` sends the form to the PayFast sandbox. |
+| `WHATSAPP_TOKEN` | No | Meta WhatsApp Cloud API. Preferred over Twilio. |
+| `WHATSAPP_PHONE_NUMBER_ID` | No | Meta sender. |
+| `WHATSAPP_VERIFY_TOKEN` | No | Meta webhook verify token. |
+| `KITCHEN_WHATSAPP` | No | E.164 kitchen number. Overrides the settings page when set. |
+| `MANAGER_WHATSAPP` | No | End-of-day summary, low ratings. Overrides settings. |
+| `CHEF_WHATSAPP_ALLOWLIST` | No | Comma-separated chef numbers. Inbound specials are ignored if this is empty. |
+| `TWILIO_ACCOUNT_SID` | No | Fallback WhatsApp when Meta is unset. |
+| `TWILIO_AUTH_TOKEN` | No | Twilio. |
+| `TWILIO_WHATSAPP_FROM` | No | Twilio sender, e.g. `whatsapp:+14155238886`. |
+| `RESEND_API_KEY` | No | Sign-in codes and the Monday CSV. No-op if unset. |
+| `EMAIL_FROM` | No | From address Resend has verified. |
+| `MANAGER_EMAIL` | No | Overrides the settings page. |
+| `REPORTS_EMAIL` | No | Monday CSV. Falls back to `MANAGER_EMAIL`. |
+| `CRON_SECRET` | Yes, for schedules | Shared with `private.runtime_config`. |
+| `APP_BASE_URL` | No | Defaults to `https://thefood-court.co.za`. Card success URLs use it. |
+
+```bash
+npx supabase secrets set \
+  STAFF_PIN='choose-a-pin' \
+  CHEF_PIN='choose-a-chef-pin' \
+  CRON_SECRET='choose-a-long-random-string'
+```
+
+Add payment, WhatsApp, and email secrets the same way when you have them.
+
+### 4. Deploy the functions
+
+`verify_jwt` is off on all four. The functions check the staff PIN, the chef PIN, the cron secret, or the webhook themselves. Students use a Supabase session after PIN or email-code sign-in.
+
+```bash
+npx supabase functions deploy api
+npx supabase functions deploy automations
+npx supabase functions deploy whatsapp-webhook
+npx supabase functions deploy payments-webhook
+```
+
+### 5. Point cron at the functions
+
+In the SQL editor, after the functions are deployed:
+
+```sql
+insert into private.runtime_config (key, value) values
+  ('functions_base_url', 'https://YOUR_PROJECT_REF.supabase.co/functions/v1'),
+  ('cron_secret', 'the same string as CRON_SECRET')
+on conflict (key) do update set value = excluded.value;
+```
+
+Until both values are set, each job inserts an `automation_runs` row with status `skipped` and does not call the network.
+
+Schedules are UTC (SAST is UTC+2, no daylight saving):
+
+| Job | UTC cron | SAST |
+| --- | --- | --- |
+| `low-balance` | `*/15 * * * *` | every 15 minutes |
+| `no-show` | `*/10 * * * *` | every 10 minutes |
+| `chef-nudge` | `0 5 * * *` | 07:00 |
+| `special-deadline` | `0 7 * * *` | 09:00 |
+| `stock` | `*/30 * * * *` | every 30 minutes |
+| `eod` | `45 15 * * *` | 17:45 |
+| `weekly-csv` | `30 5 * * 1` | Monday 07:30 |
+| `forecast` | `0 4 * * 1-6` | 06:00, Monday–Saturday |
+| `reconcile` | `30 20 * * *` | 22:30 |
+
+A manager can also run any job from `/kitchen/settings`.
+
+### 6. Webhooks
+
+Meta WhatsApp callback:
+
+`https://YOUR_PROJECT_REF.supabase.co/functions/v1/whatsapp-webhook`
+
+Use the same verify token as `WHATSAPP_VERIFY_TOKEN`. Subscribe to messages. Only numbers in `CHEF_WHATSAPP_ALLOWLIST` (or the settings-page list, when the env var is empty) can publish a special. The photo is stored in the public `specials` bucket.
+
+Yoco and PayFast notify:
+
+`https://YOUR_PROJECT_REF.supabase.co/functions/v1/payments-webhook`
+
+A successful payment credits a pending top-up or marks the order paid. The same provider reference is applied once.
+
+### 7. Point the static site at Supabase
+
+In [`js/config.js`](js/config.js):
 
 ```js
-export const FOODCOURT_API_URL = "https://thefood-court-api.<your-subdomain>.workers.dev";
+export const SUPABASE_URL = 'https://YOUR_PROJECT_REF.supabase.co';
+export const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
 ```
 
-Commit that change and let Pages update. Same value is used by the student app and the kitchen board.
+Commit that and let Pages update. Do not put the service role key, staff PINs, or provider secrets in this file or in `index.html`.
 
-## Deploy the orders API (Cloudflare Worker)
+### Row level security
 
-Free Cloudflare account is enough (Workers + KV).
+Clients using the anon key cannot write orders, wallets, stock, or settings. Mutations go through the Edge Functions with the service role.
 
-1. Install nothing if you have Node — Wrangler runs via npx.
-2. Login: `npx wrangler login`
-3. Create KV:
-   ```bash
-   npx wrangler kv namespace create ORDERS
-   npx wrangler kv namespace create ORDERS --preview
-   ```
-4. Paste the two ids into [`wrangler.toml`](wrangler.toml) (`id` and `preview_id`).
-5. Put the kitchen PIN (WhatsApp secrets are optional — skip until you have a number):
-   ```bash
-   npx wrangler secret put STAFF_PIN
-   ```
-6. Deploy: `npm run api:deploy` (or `npx wrangler deploy`).
-7. Copy the printed `*.workers.dev` URL into `js/config.js` as `FOODCOURT_API_URL` and deploy Pages.
+- Anonymous and signed-in users can read the menu and published specials.
+- Anonymous and signed-in users can read `counter_now` (order number, name, pickup label, ready orders only — no phone).
+- A signed-in student can read their own profile, ledger, orders, and ratings.
+- Report views (`v_revenue_orders`, `v_revenue_by_method`, `v_item_units`, `v_sales_by_dow`, `v_sales_by_hour`, `v_wallet_liability`, `v_special_performance`, `v_refunds`) are service-role only.
+- `wallet_ledger_apply` rejects a debit that would make `balance_cents` negative.
+- Execute on the write RPCs is revoked from `anon` and `authenticated`.
 
-Optional GitHub Action: [`.github/workflows/deploy-api.yml`](.github/workflows/deploy-api.yml) (`workflow_dispatch`). Add repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+Recognised revenue matches the reports page: wallet and card count when paid; cash counts when the order is collected or marked paid; cancelled, no-show, refunded, and written-off orders are excluded.
 
-Menu prices live in [`js/data/menu.js`](js/data/menu.js). The Worker **bundles that file**, so after chalkboard changes redeploy **Pages and the Worker**.
+### Provider behaviour
 
-### Environment / secrets
-
-| Name | Where | Required | Purpose |
-| --- | --- | --- | --- |
-| `FOODCOURT_API_URL` | `js/config.js` or `window.FOODCOURT_API_URL` | For live kitchen | Worker origin, no trailing slash |
-| `STAFF_PIN` | Worker secret (or `.dev.vars` locally) | Kitchen board | Till PIN. Local mock default is `1234` |
-| `KITCHEN_WHATSAPP` | Worker secret | No — later | Kitchen phone in E.164, e.g. `27821234567` or `+27821234567` |
-| `CALLMEBOT_APIKEY` | Worker secret | No — later | CallMeBot key (simple SA WhatsApp path) |
-| `TWILIO_ACCOUNT_SID` | Worker secret | No — later | Twilio account |
-| `TWILIO_AUTH_TOKEN` | Worker secret | No — later | Twilio token |
-| `TWILIO_WHATSAPP_FROM` | Worker secret | No — later | e.g. `whatsapp:+14155238886` (sandbox or live sender) |
-
-WhatsApp is **not required** to run the kitchen board or to place a pre-order. If those secrets are unset, the Worker skips the ping and still saves the order. Never put secrets in the static Pages files.
-
-### Turn on WhatsApp later (optional)
-
-Skip this until you have a kitchen phone number. The hook already lives in the Worker (`notifyKitchenWhatsApp`); it fail-softs when nothing is configured.
-
-**CallMeBot (simple SA path)** — used when Twilio is not fully configured:
-
-1. From the **kitchen phone**, WhatsApp the CallMeBot setup number (see [CallMeBot WhatsApp](https://www.callmebot.com/blog/free-api-whatsapp-messages/)) and wait for the API key.
-2. `npx wrangler secret put KITCHEN_WHATSAPP` — E.164, e.g. `2782…` or `+2782…`.
-3. `npx wrangler secret put CALLMEBOT_APIKEY` with the key they sent you.
-4. Place a test pre-order. The phone should get a short message: order `FC-…`, pickup time, items, name, phone.
-
-**Twilio (alternative)** — if `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` are all set, the Worker uses Twilio instead of CallMeBot.
-
-1. Create a Twilio account and enable WhatsApp (sandbox is enough to trial).
-2. Join the sandbox from the kitchen phone.
-3. Set `KITCHEN_WHATSAPP` to the kitchen number (`+2782…`).
-4. Set `TWILIO_WHATSAPP_FROM` to the sandbox/live WhatsApp sender (`whatsapp:+14…`).
-5. Store the three Twilio secrets with `wrangler secret put`.
-
-### Kitchen board
-
-- URL: `/kitchen.html` (also `/kitchen`).
-- Designed for a laptop or TV at the till; filters stack on a phone.
-- Open orders: number, name, phone, pickup time, items, notes, total.
-- Buttons: **Start preparing** → **Mark ready** → **Collected**.
-- Auto-refresh every 8 seconds. Optional beep on new orders (mute in the header).
-- Lock when you leave the counter.
-
-API shape used by [`js/api/httpBackend.js`](js/api/httpBackend.js):
-
-| Method | Path | Auth |
-| --- | --- | --- |
-| `GET` | `/menu` | public |
-| `POST` | `/orders` | public (students) |
-| `GET` | `/orders/:id` | public (confirmation UUID) |
-| `POST` | `/kitchen/login` | PIN body or `X-Staff-Pin` |
-| `GET` | `/kitchen/orders` | `X-Staff-Pin` |
-| `PATCH` | `/kitchen/orders/:id` | `X-Staff-Pin` + `{ "status": "preparing" }` |
-
-Expected JSON for `POST /orders`:
-
-```json
-{
-  "customerName": "Thabo",
-  "phone": "0821234567",
-  "pickupTime": "2026-09-17T12:15:00.000Z",
-  "notes": "No chilli",
-  "items": [{ "itemId": "campus-burger", "qty": 1 }]
-}
-```
-
-The server validates the menu (including day-gated items), recomputes totals in cents, and returns an order with `id`, `orderNumber`, `status`, `pickupTime`, `items`, `totalCents`, and `payOnCollection: true`.
+- WhatsApp uses Meta (`WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`) first, then Twilio, then skips.
+- Email uses Resend (`RESEND_API_KEY` + `EMAIL_FROM`) or skips. The sign-in code is not returned in the API response.
+- Cards use Yoco, then PayFast. With neither configured, checkout is recorded as paid and `demo: true`, and no HTTP call is made.
+- Destination numbers and emails in the environment override the same fields saved on the settings page.
+- Nightly reconciliation lists Yoco checkouts when that key is set. PayFast has no list API in this adapter, so that job is skipped until Yoco is the provider. Mismatches are inserted into `reconciliation_flags` and shown on `/kitchen/reports`.
 
 ## Brand
 
-Navy `#0b1f3a` and gold `#e0b25a`, with the Food Court red mark. Pickup only — no delivery.
+Navy `#0b1f3a` and gold `#e0b25a`, with the Food Court red mark. Pickup only — no delivery. Tap targets are at least 44px.

@@ -1,29 +1,23 @@
-import { FOODCOURT_API_URL as CONFIG_API_URL } from '../config.js';
+import { SUPABASE_ANON_KEY as CONFIG_ANON_KEY, SUPABASE_URL as CONFIG_URL } from '../config.js';
 import { getLocalStorage } from '../lib/dom.js';
-import { createHttpOrderApi } from './httpBackend.js';
 import { createMockOrderApi } from './mockBackend.js';
+import { createSupabaseOrderApi } from './supabaseBackend.js';
 
-/**
- * Set window.FOODCOURT_API_URL, js/config.js FOODCOURT_API_URL, or this default
- * to point at the Cloudflare Worker. Leave empty to use the localStorage mock.
- */
-export const DEFAULT_API_URL = '';
-
-export function resolveApiUrl(baseUrl = DEFAULT_API_URL) {
-  const fromWindow =
-    typeof globalThis !== 'undefined' && globalThis.FOODCOURT_API_URL
-      ? String(globalThis.FOODCOURT_API_URL)
-      : '';
-  return String(baseUrl || fromWindow || CONFIG_API_URL || '').replace(/\/$/, '');
+export function resolveSupabaseConfig() {
+  const host = typeof globalThis !== 'undefined' ? globalThis : {};
+  const url = String(host.SUPABASE_URL || CONFIG_URL || '').trim().replace(/\/$/, '');
+  const anonKey = String(host.SUPABASE_ANON_KEY || CONFIG_ANON_KEY || '').trim();
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
 }
 
 export function createOrderApi({
-  baseUrl = DEFAULT_API_URL,
   storage = getLocalStorage(),
   nowFn,
   staffPin,
+  seedDemo = true,
 } = {}) {
-  const liveUrl = resolveApiUrl(baseUrl);
-  if (liveUrl) return createHttpOrderApi(liveUrl);
-  return createMockOrderApi(storage, { nowFn, staffPin });
+  const live = resolveSupabaseConfig();
+  if (live) return createSupabaseOrderApi(live);
+  return createMockOrderApi(storage, { nowFn, staffPin, seedDemo });
 }

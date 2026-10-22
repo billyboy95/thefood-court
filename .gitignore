@@ -4,5 +4,7 @@ node_modules/
 .vscode/
 *.log
 .wrangler/
-.dev.vars
-.dev.vars.local
+.env
+.env.local
+supabase/.temp/
+supabase/.branches/
